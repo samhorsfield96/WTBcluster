@@ -1,0 +1,8 @@
+#output directory
+output_dir: /path/to/output/dir
+
+# tsv file with an absolute file path per line
+file_list: /path/to/genome/fasta/dir
+
+# batch size for saving files
+batch_size: 2000

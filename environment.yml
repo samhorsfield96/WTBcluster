@@ -1,0 +1,12 @@
+name: WTBcluster
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python>=3.9
+  - pyrodigal
+  - mmseqs2
+  - pandas
+  - biopython
+  - snakemake
