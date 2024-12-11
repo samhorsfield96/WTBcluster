@@ -3,19 +3,12 @@ import os
 
 configfile: "config.yaml"
 
-rule all:
-    input:
-        #matrix = f"{config['output_dir']}/presence_absence_matrix.txt",
-        #summary_file = f"{config['output_dir']}/pangenome_summary.tsv",
-        #checkm_file = f"{config['output_dir']}/checkm_out.tsv",
-        #cgt_output = f"{config['output_dir']}/cgt_output.txt"
-
 rule mkdir:
     output:
         dir1 = directory(f"{config['output_dir']}/pyrodigal_batches"),
         dir2 = directory(f"{config['output_dir']}/pyrodigal_annotations"),
-        dir3 = directory(f"{config['output_dir']}/mmseqs2_batches")
-        dir4 = directory(f"{config['output_dir']}/mmseqs2_clustering")
+        dir3 = directory(f"{config['output_dir']}/mmseqs2_batches"),
+        dir4 = directory(f"{config['output_dir']}/mmseqs2_clustering"),
         dir5 = directory(f"{config['output_dir']}/tokenised_genomes")
     shell:
         """
@@ -50,13 +43,13 @@ rule pyrodigal:
 
 rule list_pyrodigal:
     input:
-        pyrodigal_annotations: f"{config['output_dir']}/pyrodigal_annotations"
+        pyrodigal_annotations= f"{config['output_dir']}/pyrodigal_annotations"
     output:
-        pyrodigal_faa_paths: f"{config['output_dir']}/pyrodigal_faa_paths.txt",
-        pyrodigal_gff_paths: f"{config['output_dir']}/pyrodigal_gff_paths.txt",
+        pyrodigal_faa_paths= f"{config['output_dir']}/pyrodigal_faa_paths.txt",
+        pyrodigal_gff_paths= f"{config['output_dir']}/pyrodigal_gff_paths.txt",
         pyrodigal_batches_dir = directory(f"{config['output_dir']}/pyrodigal_batches")
     params:
-        mmseqs2_batch_size: f"{config['mmseqs2_batch_size']}"
+        mmseqs2_batch_size= f"{config['mmseqs2_batch_size']}"
     shell:
         """
         ls -d -1 {input.pyrodigal_annotations}/*/*.faa > {output.pyrodigal_faa_paths}
@@ -83,52 +76,66 @@ rule concatenate_faa:
         done < {input.batch_file}
         """
 
-# get list of input files
+# Function to list files
 def list_files(dir, extension, sort=False):
     input_files = glob.glob(os.path.join(dir, "*" + extension))
     if sort:
         input_files.sort()
     return input_files
 
-def get_iteration_faa(wildcards, dir, extension):
-    input_files = list_files(dir, extension, sort=True)
-    iteration = int(wildcards.iteration)
-    return input_files[iteration]
+# Get number of iterations based on input files
+input_files = list_files(f"{config['output_dir']}/mmseqs2_batches", ".faa", sort=True)
+num_iterations = len(input_files)
 
-def get_iteration_rep(wildcards, dir, extension):
-    input_files = list_files(dir, extension, sort=True)
-    iteration = int(wildcards.iteration)
-    if iteration == 0:
-        return None
-    return input_files[iteration]
+# Define the final output
+rule all:
+    input:
+        expand(f"{config['output_dir']}/mmseqs2_clustering/clustered_{{iteration}}", iteration=range(num_iterations))
 
+# Get current and previous files dynamically
+def get_iteration_faa(wildcards):
+    return input_files[int(wildcards.iteration)]
 
+def get_iteration_rep(wildcards):
+    previous_file = f"{config['output_dir']}/mmseqs2_clustering/clustered_{int(wildcards.iteration) - 1}_rep_seq.fasta"
+    if int(wildcards.iteration) == 0 or not os.path.exists(previous_file):
+        return None  # No previous file for first iteration
+    return previous_file
+
+# Concatenate FASTA files
 rule concatenate_fasta:
     input:
-        current=lambda wildcards: expand(f"{{sample}}", sample=get_iteration_faa(wildcards, f"{config['output_dir']}/mmseqs2_batches", ".faa")),
-        previous=lambda wildcards: expand(f"{{sample}}", sample=get_iteration_rep(wildcards, f"{config['output_dir']}/mmseqs2_clustering", "_rep_seq.fasta"))
+        current=lambda wildcards: get_iteration_faa(wildcards),
+        previous=lambda wildcards: get_iteration_rep(wildcards)
     output:
-        outfile: f"{config['output_dir']}/mmseqs2_clustering/concatenated_{iteration}.fasta"
+        outfile=f"{config['output_dir']}/mmseqs2_clustering/concatenated_{{iteration}}.fasta"
     shell:
         """
-        cat {input.current} {input.previous} > {output.outfile} || cp {input.current} {output}
+        if [ -z "{input.previous}" ]; then
+            cp {input.current} {output.outfile}
+        else
+            cat {input.current} {input.previous} > {output.outfile}
+        fi
         """
 
+# Run MMseqs clustering
 rule mmseqs_cluster:
     input:
-        fasta= f"{config['output_dir']}/mmseqs2_clustering/concatenated_{iteration}.fasta"
+        fasta=f"{config['output_dir']}/mmseqs2_clustering/concatenated_{{iteration}}.fasta"
     output:
-        outpref=f"{config['output_dir']}/mmseqs2_clustering/clustered_{iteration}"
+        outpref=f"{config['output_dir']}/mmseqs2_clustering/clustered_{{iteration}}"
     threads: 40
     params:
         mmseqs2_tmp_dir=f"{config['mmseqs2_tmp_dir']}",
-        mmseqs2_min_ID= f"{config['mmseqs2_min_ID']}",
-        mmseqs2_min_cov= f"{config['mmseqs2_min_cov']}",
-        mmseqs2_cov_mode= f"{config['mmseqs2_cov_mode']}",
-        mmseqs2_ID_mode= f"{config['mmseqs2_ID_mode']}",
+        mmseqs2_min_ID=f"{config['mmseqs2_min_ID']}",
+        mmseqs2_min_cov=f"{config['mmseqs2_min_cov']}",
+        mmseqs2_cov_mode=f"{config['mmseqs2_cov_mode']}",
+        mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}"
     shell:
         """
-        mmseqs easy-linclust {input.fasta} {output.outpref} {params.mmseqs2_tmp_dir} --min-seq-id {params.mmseqs2_min_ID} -c {params.mmseqs2_min_cov} --seq-id-mode {params.mmseqs2_ID_mode} --threads {threads} --cov-mode {params.mmseqs2_cov_mode}
+        mmseqs easy-linclust {input.fasta} {output.outpref} {params.mmseqs2_tmp_dir} \
+            --min-seq-id {params.mmseqs2_min_ID} -c {params.mmseqs2_min_cov} \
+            --seq-id-mode {params.mmseqs2_ID_mode} --threads {threads} --cov-mode {params.mmseqs2_cov_mode}
         """
 
 rule mmseqs_cluster_merge:
@@ -162,8 +169,6 @@ rule generate_token_db:
         "WTBcluster"
     threads: 1
     script: "scripts/generate_token_db.py"
-
-rule 
 
 rule tokenise_genomes:
     input:
