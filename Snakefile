@@ -16,12 +16,14 @@ rule mkdir:
         dir2 = directory(f"{config['output_dir']}/pyrodigal_annotations"),
         dir3 = directory(f"{config['output_dir']}/mmseqs2_batches")
         dir4 = directory(f"{config['output_dir']}/mmseqs2_clustering")
+        dir5 = directory(f"{config['output_dir']}/tokenised_genomes")
     shell:
         """
         mkdir {output.dir1}
         mkdir {output.dir2}
         mkdir {output.dir3}
         mkdir {output.dir4}
+        mkdir {output.dir5}
         """
 
 rule split_batch:
@@ -51,13 +53,16 @@ rule list_pyrodigal:
         pyrodigal_annotations: f"{config['output_dir']}/pyrodigal_annotations"
     output:
         pyrodigal_faa_paths: f"{config['output_dir']}/pyrodigal_faa_paths.txt",
+        pyrodigal_gff_paths: f"{config['output_dir']}/pyrodigal_gff_paths.txt",
         pyrodigal_batches_dir = directory(f"{config['output_dir']}/pyrodigal_batches")
     params:
         mmseqs2_batch_size: f"{config['mmseqs2_batch_size']}"
     shell:
         """
         ls -d -1 {input.pyrodigal_annotations}/*/*.faa > {output.pyrodigal_faa_paths}
+        ls -d -1 {input.pyrodigal_annotations}/*/*.gff > {output.pyrodigal_gff_paths}
         split -d -l {params.mmseqs2_batch_size} {output.pyrodigal_faa_paths} {output.pyrodigal_batches_dir}/pyrodigal_faa_batches_
+        split -d -l {params.mmseqs2_batch_size} {output.pyrodigal_gff_paths} {output.pyrodigal_batches_dir}/pyrodigal_gff_batches_
         """
 
 rule concatenate_faa:
@@ -147,7 +152,28 @@ rule mmseqs_cluster_write:
     threads: 1
     script: "scripts/write_mmseqs2_clusters.py"
 
-#rule generate_token_db:
+rule generate_token_db:
+    input:
+        clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.tsv"
+    output:
+        out_db = f"{config['output_dir']}/mmseqs2_clustering/gene_tokens.db",
+        out_reps = f"{config['output_dir']}/mmseqs2_clustering/reps.pkl"
+    conda:
+        "WTBcluster"
+    threads: 1
+    script: "scripts/generate_token_db.py"
 
+rule 
+
+rule tokenise_genomes:
+    input:
+        batch_file = f"{config['output_dir']}/pyrodigal_batches/pyrodigal_gff_batches_{{sample}}",
+        out_db = f"{config['output_dir']}/mmseqs2_clustering/gene_tokens.db"
+    output:
+        outfile= f"{config['output_dir']}/tokenised_genomes/tokenized_genomes_batch_{{sample}}.txt"
+    conda:
+        "WTBcluster"
+    threads: 1
+    script: "scripts/tokenize_genomes.py"
 
 # add bakta annotation
