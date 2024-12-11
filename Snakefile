@@ -126,3 +126,28 @@ rule mmseqs_cluster:
         mmseqs easy-linclust {input.fasta} {output.outpref} {params.mmseqs2_tmp_dir} --min-seq-id {params.mmseqs2_min_ID} -c {params.mmseqs2_min_cov} --seq-id-mode {params.mmseqs2_ID_mode} --threads {threads} --cov-mode {params.mmseqs2_cov_mode}
         """
 
+rule mmseqs_cluster_merge:
+    input:
+        indir = directory(f"{config['output_dir']}/mmseqs2_clustering")
+    output:
+        clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl"
+    conda:
+        "WTBcluster"
+    threads: 1
+    script: "scripts/merge_mmseqs2_clusters.py"
+
+rule mmseqs_cluster_write:
+    input:
+        indir = directory(f"{config['output_dir']}/mmseqs2_clustering"),
+        clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl"
+    output:
+        outfile = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.tsv"
+    conda:
+        "WTBcluster"
+    threads: 1
+    script: "scripts/write_mmseqs2_clusters.py"
+
+#rule generate_token_db:
+
+
+# add bakta annotation
