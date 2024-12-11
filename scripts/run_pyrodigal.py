@@ -52,8 +52,8 @@ def run_pyrodigal(file_list, output_dir):
                     orfs = orf_finder.find_genes(bytes(record.seq))
 
                     # write to open files
-                    orfs.write_genes(o_ffn, record.id, full_id=True)
-                    orfs.write_translations(o_faa, record.id, full_id=True)
-                    orfs.write_gff(o_gff, record.id, include_translation_table=False, full_id=True)
+                    orfs.write_genes(o_ffn, basename + "_" + record.id, full_id=True)
+                    orfs.write_translations(o_faa, basename + "_" + record.id, full_id=True)
+                    orfs.write_gff(o_gff, basename + "_" + record.id, include_translation_table=False, full_id=True)
         
 run_pyrodigal(snakemake.input.batch_file, snakemake.output.outdir)

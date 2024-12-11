@@ -4,5 +4,9 @@ output_dir: /path/to/output/dir
 # tsv file with an absolute file path per line
 file_list: /path/to/genome/fasta/dir
 
-# batch size for saving files
-batch_size: 2000
+# number of genomes per batch for saving pyrodigal files
+pyrodigal_batch_size: 2000
+
+# number of genomes per MMseqs2 batch
+mmseqs2_batch_size: 200000
+
