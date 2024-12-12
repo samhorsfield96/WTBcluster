@@ -1,8 +1,8 @@
 #output directory
-output_dir: /path/to/output/dir
+output_dir: /nfs/research/jlees/shorsfield/AtB_gene_predictions/WTBcluster/test
 
 # tsv file with an absolute file path per line
-file_list: /path/to/genome/fasta/dir
+file_list: /nfs/research/jlees/shorsfield/AtB_gene_predictions/file_list_absolute_test_N10K.txt
 
 # number of genomes per batch for saving pyrodigal files
 pyrodigal_batch_size: 2000
@@ -15,5 +15,5 @@ mmseqs2_min_ID: 0.5
 mmseqs2_min_cov: 0.5
 mmseqs2_cov_mode: 0
 mmseqs2_ID_mode: 0
-mmseqs2_tmp_dir: /path/to/tmp/dir
+mmseqs2_tmp_dir: /hps/nobackup/jlees/mmseqs2/WTBcluster
 

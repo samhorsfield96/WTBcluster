@@ -3,50 +3,84 @@ import os
 
 configfile: "config.yaml"
 
-rule mkdir:
-    output:
-        dir1 = directory(f"{config['output_dir']}/pyrodigal_batches"),
-        dir2 = directory(f"{config['output_dir']}/pyrodigal_annotations"),
-        dir3 = directory(f"{config['output_dir']}/mmseqs2_batches"),
-        dir4 = directory(f"{config['output_dir']}/mmseqs2_clustering"),
-        dir5 = directory(f"{config['output_dir']}/tokenised_genomes")
-    shell:
-        """
-        mkdir {output.dir1}
-        mkdir {output.dir2}
-        mkdir {output.dir3}
-        mkdir {output.dir4}
-        mkdir {output.dir5}
-        """
+# Define the final output
+rule all:
+    input:
+        pyrodigal_faa_paths=f"{config['output_dir']}/pyrodigal_faa_paths.txt",
+        clusters_pkl = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl",
+        clusters_tsv = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.tsv",
+        out_db = f"{config['output_dir']}/mmseqs2_clustering/gene_tokens.db",
+        out_reps = f"{config['output_dir']}/mmseqs2_clustering/reps.pkl"
 
-rule split_batch:
+# rule mkdir:
+#     output:
+#         dir1 = directory(f"{config['output_dir']}/pyrodigal_batches"),
+#         dir2 = directory(f"{config['output_dir']}/pyrodigal_annotations"),
+#         dir3 = directory(f"{config['output_dir']}/mmseqs2_batches"),
+#         dir4 = directory(f"{config['output_dir']}/mmseqs2_clustering"),
+#         dir5 = directory(f"{config['output_dir']}/tokenised_genomes")
+#     shell:
+#         """
+#         mkdir {output.dir1}
+#         mkdir {output.dir2}
+#         mkdir {output.dir3}
+#         mkdir {output.dir4}
+#         mkdir {output.dir5}
+#         """
+
+checkpoint split_file_batch:
     input:
         file_list = f"{config['file_list']}"
     output:
-        batch_file = f"{config['output_dir']}/pyrodigal_batches/pyrodigal_batch_N_"
+        #pyrodigal_batches_dir=directory(f"{config['output_dir']}/pyrodigal_batches"),
+        batches_dir=directory(f"{config['output_dir']}/pyrodigal_batches")
     params:
         pyrodigal_batch_size = f"{config['pyrodigal_batch_size']}"
     shell:
         """
-        split -d -l {params.pyrodigal_batch_size} {input.file_list} {output.batch_file}
+        mkdir {output.batches_dir}
+        mkdir {output.annotations_dir}
+        split -d -l {params.pyrodigal_batch_size} {input.file_list} {output.batches_dir}/pyrodigal_batch_N_
         """
+
+def get_file_batches(wildcards):
+    checkpoint_output = checkpoints.split_file_batch.get(wildcards)
+    batches_dir = checkpoint_output.output.batches_dir
+    return sorted(glob.glob(f"{batches_dir}/pyrodigal_batch_N_*"))
 
 rule pyrodigal:
     input:
-        batch_file = f"{config['output_dir']}/pyrodigal_batches/pyrodigal_batch_N_{{sample}}"
+        batch_file=lambda wildcards: get_file_batches(wildcards)
     output:
-        outdir = directory(f"{config['output_dir']}/pyrodigal_annotations/batch_{{sample}}_ann")
+        outdir=directory(f"{config['output_dir']}/pyrodigal_annotations/batch_{{wildcards}}_ann")
     conda:
         "WTBcluster"
     threads: 1
     script: "scripts/run_pyrodigal.py"
 
-rule list_pyrodigal:
+rule list_pyrodigal_batch:
     input:
-        pyrodigal_annotations= f"{config['output_dir']}/pyrodigal_annotations"
+        pyrodigal_annotations= f"{config['output_dir']}/pyrodigal_annotations/batch_{{sample}}_ann",
     output:
-        pyrodigal_faa_paths= f"{config['output_dir']}/pyrodigal_faa_paths.txt",
-        pyrodigal_gff_paths= f"{config['output_dir']}/pyrodigal_gff_paths.txt",
+        pyrodigal_faa_paths= f"{config['output_dir']}/pyrodigal_faa_paths_batch_{{sample}}.txt",
+        pyrodigal_gff_paths= f"{config['output_dir']}/pyrodigal_gff_paths_batch_{{sample}}.txt",
+        pyrodigal_batches_dir = directory(f"{config['output_dir']}/pyrodigal_batches")
+    params:
+        mmseqs2_batch_size= f"{config['mmseqs2_batch_size']}"
+    shell:
+        """
+        ls -d -1 {input.pyrodigal_annotations}/*/*.faa > {output.pyrodigal_faa_paths}
+        ls -d -1 {input.pyrodigal_annotations}/*/*.gff > {output.pyrodigal_gff_paths}
+        split -d -l {params.mmseqs2_batch_size} {output.pyrodigal_faa_paths} {output.pyrodigal_batches_dir}/pyrodigal_faa_batches_
+        split -d -l {params.mmseqs2_batch_size} {output.pyrodigal_gff_paths} {output.pyrodigal_batches_dir}/pyrodigal_gff_batches_
+        """
+
+rule list_pyrodigal_full:
+    input:
+        pyrodigal_annotations= f"{config['output_dir']}/pyrodigal_annotations/batch_{{sample}}_ann",
+    output:
+        pyrodigal_faa_paths= f"{config['output_dir']}/pyrodigal_faa_paths_batch_{{sample}}.txt",
+        pyrodigal_gff_paths= f"{config['output_dir']}/pyrodigal_gff_paths_batch_{{sample}}.txt",
         pyrodigal_batches_dir = directory(f"{config['output_dir']}/pyrodigal_batches")
     params:
         mmseqs2_batch_size= f"{config['mmseqs2_batch_size']}"
@@ -87,10 +121,9 @@ def list_files(dir, extension, sort=False):
 input_files = list_files(f"{config['output_dir']}/mmseqs2_batches", ".faa", sort=True)
 num_iterations = len(input_files)
 
-# Define the final output
-rule all:
+rule iteration:
     input:
-        expand(f"{config['output_dir']}/mmseqs2_clustering/clustered_{{iteration}}", iteration=range(num_iterations))
+        expand(f"{config['output_dir']}/mmseqs2_clustering/clustered_{{iteration}}", iteration=range(num_iterations)),
 
 # Get current and previous files dynamically
 def get_iteration_faa(wildcards):
@@ -140,7 +173,7 @@ rule mmseqs_cluster:
 
 rule mmseqs_cluster_merge:
     input:
-        indir = directory(f"{config['output_dir']}/mmseqs2_clustering")
+        indir = f"{config['output_dir']}/mmseqs2_clustering"
     output:
         clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl"
     conda:
@@ -150,7 +183,7 @@ rule mmseqs_cluster_merge:
 
 rule mmseqs_cluster_write:
     input:
-        indir = directory(f"{config['output_dir']}/mmseqs2_clustering"),
+        indir = f"{config['output_dir']}/mmseqs2_clustering",
         clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl"
     output:
         outfile = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.tsv"
