@@ -58,45 +58,54 @@ rule pyrodigal:
     threads: 1
     script: "scripts/run_pyrodigal.py"
 
-rule list_pyrodigal_batch:
+checkpoint list_pyrodigal_batch:
     input:
-        pyrodigal_annotations= f"{config['output_dir']}/pyrodigal_annotations/batch_{{sample}}_ann",
+        pyrodigal_annotations= f"{config['output_dir']}/pyrodigal_annotations/batch_{{sample}}_ann"
     output:
-        pyrodigal_faa_paths= f"{config['output_dir']}/pyrodigal_faa_paths_batch_{{sample}}.txt",
-        pyrodigal_gff_paths= f"{config['output_dir']}/pyrodigal_gff_paths_batch_{{sample}}.txt",
-        pyrodigal_batches_dir = directory(f"{config['output_dir']}/pyrodigal_batches")
+        pyrodigal_faa_paths= f"{config['output_dir']}/pyrodigal_batches/pyrodigal_faa_paths_batch_{{sample}}.txt",
+        pyrodigal_gff_paths= f"{config['output_dir']}/pyrodigal_batches/pyrodigal_gff_paths_batch_{{sample}}.txt",
+    shell:
+        """
+        ls -d -1 {input.pyrodigal_annotations}/*.faa > {output.pyrodigal_faa_paths}
+        ls -d -1 {input.pyrodigal_annotations}/*.gff > {output.pyrodigal_gff_paths}
+        """
+
+def get_pyrodigal_batches(wildcards, faa=True):
+    checkpoint_output = checkpoints.list_pyrodigal_batch.get(wildcards)
+    batches_dir = f"{config['output_dir']}/pyrodigal_batches"
+    if faa == True:
+        return sorted(glob.glob(f"{batches_dir}/pyrodigal_faa_paths_batch_*.txt"))
+    else:
+        return sorted(glob.glob(f"{batches_dir}/pyrodigal_gff_paths_batch_*.txt"))
+
+checkpoint list_pyrodigal_full:
+    input:
+        pyrodigal_faa= lambda wildcards: get_pyrodigal_batches(wildcards, faa=True),
+        pyrodigal_gff= lambda wildcards: get_pyrodigal_batches(wildcards, faa=False)
+    output:
+        pyrodigal_faa_paths= f"{config['output_dir']}/pyrodigal_batches/pyrodigal_faa_paths_all.txt",
+        pyrodigal_gff_paths= f"{config['output_dir']}/pyrodigal_batches/pyrodigal_gff_paths_all.txt",
+        pyrodigal_batches_dir= f"{config['output_dir']}/pyrodigal_batches",
     params:
         mmseqs2_batch_size= f"{config['mmseqs2_batch_size']}"
     shell:
         """
-        ls -d -1 {input.pyrodigal_annotations}/*/*.faa > {output.pyrodigal_faa_paths}
-        ls -d -1 {input.pyrodigal_annotations}/*/*.gff > {output.pyrodigal_gff_paths}
+        cat {input.pyrodigal_faa} > {output.pyrodigal_faa_paths}
+        cat {input.pyrodigal_gff} > {output.pyrodigal_gff_paths}
         split -d -l {params.mmseqs2_batch_size} {output.pyrodigal_faa_paths} {output.pyrodigal_batches_dir}/pyrodigal_faa_batches_
         split -d -l {params.mmseqs2_batch_size} {output.pyrodigal_gff_paths} {output.pyrodigal_batches_dir}/pyrodigal_gff_batches_
         """
 
-rule list_pyrodigal_full:
-    input:
-        pyrodigal_annotations= f"{config['output_dir']}/pyrodigal_annotations/batch_{{sample}}_ann",
-    output:
-        pyrodigal_faa_paths= f"{config['output_dir']}/pyrodigal_faa_paths_batch_{{sample}}.txt",
-        pyrodigal_gff_paths= f"{config['output_dir']}/pyrodigal_gff_paths_batch_{{sample}}.txt",
-        pyrodigal_batches_dir = directory(f"{config['output_dir']}/pyrodigal_batches")
-    params:
-        mmseqs2_batch_size= f"{config['mmseqs2_batch_size']}"
-    shell:
-        """
-        ls -d -1 {input.pyrodigal_annotations}/*/*.faa > {output.pyrodigal_faa_paths}
-        ls -d -1 {input.pyrodigal_annotations}/*/*.gff > {output.pyrodigal_gff_paths}
-        split -d -l {params.mmseqs2_batch_size} {output.pyrodigal_faa_paths} {output.pyrodigal_batches_dir}/pyrodigal_faa_batches_
-        split -d -l {params.mmseqs2_batch_size} {output.pyrodigal_gff_paths} {output.pyrodigal_batches_dir}/pyrodigal_gff_batches_
-        """
+def get_mmseqs2_batches(wildcards):
+    checkpoint_output = checkpoints.list_pyrodigal_full.get(wildcards)
+    batches_dir = checkpoint_output.output.pyrodigal_batches_dir
+    return sorted(glob.glob(f"{batches_dir}/pyrodigal_faa_batches_*"))
 
 rule concatenate_faa:
     input:
-        batch_file = f"{config['output_dir']}/pyrodigal_batches/pyrodigal_faa_batches_{{sample}}"
+        batch_file=lambda wildcards: get_mmseqs2_batches(wildcards)
     output:
-        outfile = directory(f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat_batch_{{sample}}.faa")
+        outfile = directory(f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat_batch_{{wildcards}}.faa")
     conda:
         "WTBcluster"
     threads: 1
