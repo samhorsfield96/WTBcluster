@@ -5,11 +5,11 @@ from natsort import natsorted
 import pickle
 import os
 
-def merge_mmseqs2(indir, clusters):
-    rep_files = []
-    for path in Path(indir).glob("*_cluster.tsv"):
-        # Print the path (file or directory) to the console
-        rep_files.append(path)
+def merge_mmseqs2(rep_files, clusters):
+    # rep_files = []
+    # for path in Path(indir).glob("*_cluster.tsv"):
+    #     # Print the path (file or directory) to the console
+    #     rep_files.append(path)
 
     # sort based on batch number
     rep_files = natsorted(rep_files)
@@ -61,4 +61,4 @@ def merge_mmseqs2(indir, clusters):
     with open(clusters, 'wb') as handle:
         pickle.dump(output_dicts, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-merge_mmseqs2_clusters(snakemake.input.indir, snakemake.output.clusters)
+merge_mmseqs2_clusters(snakemake.input.infiles, snakemake.output.clusters)

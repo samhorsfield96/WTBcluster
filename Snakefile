@@ -161,7 +161,7 @@ rule concatenate_fasta:
         """
 
 # Run MMseqs clustering
-rule mmseqs_cluster:
+checkpoint mmseqs_cluster:
     input:
         fasta=f"{config['output_dir']}/mmseqs2_clustering/concatenated_{{iteration}}.fasta"
     output:
@@ -180,9 +180,14 @@ rule mmseqs_cluster:
             --seq-id-mode {params.mmseqs2_ID_mode} --threads {threads} --cov-mode {params.mmseqs2_cov_mode}
         """
 
+def get_mmseqs2_clusters(wildcards):
+    checkpoint_output = checkpoints.mmseqs_cluster.get(wildcards)
+    batches_dir = f"{config['output_dir']}/mmseqs2_clustering"
+    return sorted(glob.glob(f"{batches_dir}/clustered_*_cluster.tsv"))
+
 rule mmseqs_cluster_merge:
     input:
-        indir = f"{config['output_dir']}/mmseqs2_clustering"
+        infiles = lambda wildcards: get_mmseqs2_clusters(wildcards)
     output:
         clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl"
     conda:
@@ -192,7 +197,7 @@ rule mmseqs_cluster_merge:
 
 rule mmseqs_cluster_write:
     input:
-        indir = f"{config['output_dir']}/mmseqs2_clustering",
+        infiles = lambda wildcards: get_mmseqs2_clusters(wildcards),
         clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl"
     output:
         outfile = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.tsv"
@@ -214,7 +219,7 @@ rule generate_token_db:
 
 rule tokenise_genomes:
     input:
-        batch_file = f"{config['output_dir']}/pyrodigal_batches/pyrodigal_gff_batches_{{sample}}",
+        batch_file = f"{config['output_dir']}/pyrodigal_batches/pyrodigal_gff_paths_batch_{{sample}}.txt",
         out_db = f"{config['output_dir']}/mmseqs2_clustering/gene_tokens.db"
     output:
         outfile= f"{config['output_dir']}/tokenised_genomes/tokenized_genomes_batch_{{sample}}.txt"
