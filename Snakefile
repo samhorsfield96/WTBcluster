@@ -7,10 +7,17 @@ def get_pyrodigal_outputs(wildcards):
     checkpoint_output = checkpoints.split_file_batch.get(**wildcards).output[0]
     return expand("{out_dir}/pyrodigal_annotations/batch_{batch_ID}_ann", out_dir=config['output_dir'], batch_ID=range(config['pyrodigal_num_batches']))
 
+def get_tokenisation_outputs(wildcards):
+    return expand("{out_dir}/tokenised_genomes/tokenized_genomes_batch_{batch_ID}.txt", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+    
 # Define the final output
 rule all:
    input:
-        f"{config['output_dir']}/pyrodigal.done",
+        #f"{config['output_dir']}/pyrodigal.done",
+        f"{config['output_dir']}/list_pyrodigal_full.done"
+        #f"{config['output_dir']}/concatenate_faa.done",
+        #f"{config['output_dir']}/tokenisation.done",
+        #out_db = f"{config['output_dir']}/mmseqs2_clustering/gene_tokens.db",
 
 checkpoint split_file_batch:
     input:
@@ -20,64 +27,54 @@ checkpoint split_file_batch:
     params:
         pyrodigal_num_batches=int(f"{config['pyrodigal_num_batches']}"),
         outpref="pyrodigal_batch_N"
-    script: "scripts/split_file.py"
+    script: "scripts/split_file_pyrodigal.py"
 
-rule pyrodigal:
+checkpoint pyrodigal:
     input:
         batch_file=f"{config['output_dir']}/pyrodigal_batches/pyrodigal_batch_N{{batch_ID}}.txt"
-        #batch_file=expand("{out_dir}/pyrodigal_batches/pyrodigal_batch_N{batch_ID}.txt", out_dir=config['output_dir'], batch_ID=range(config['pyrodigal_num_batches']))
     output:
-        outdir=f"{config['output_dir']}/pyrodigal_annotations/batch_{{batch_ID}}_ann",
-        # faa_list=f"{config['output_dir']}/pyrodigal_annotations/batch_{{batch_ID}}_ann/faa_list.txt",
-        # gff_list=f"{config['output_dir']}/pyrodigal_annotations/batch_{{batch_ID}}_ann/gff_list.txt"
+        outdir=directory(f"{config['output_dir']}/pyrodigal_annotations/batch_{{batch_ID}}_ann"),
     conda:
         "WTBcluster"
     threads: 1
     script: "scripts/run_pyrodigal.py"
-        # """
-        # python scripts/run_pyrodigal.py
-        # ls -d -1 {output.outdir}/*.faa > {output.faa_list}
-        # ls -d -1 {output.outdir}/*.gff > {output.gff_list}
-        # """
 
-rule aggregate_pyrodigal:
-    input:
-        get_pyrodigal_outputs
-    output:
-        touch(f"{config['output_dir']}/pyrodigal.done")
-    run:
-        pass
-
-# def get_pyrodigal_batchs(indir):
-#     list_of_samples = [path.split("/batch_")[-1].replace("_ann", "") for path in glob.glob(indir + "/batch_*_ann")]
-#     return sorted(list_of_samples)
-
-# rule list_pyrodigal_full:
+# rule check_pyrodigal:
 #     input:
-#         pyrodigal_annotations=f"{config['output_dir']}/pyrodigal_annotations/batch_{{batch_ID}}_ann",
+#         get_pyrodigal_outputs
 #     output:
-#         pyrodigal_faa_paths=f"{config['output_dir']}/pyrodigal_batches/pyrodigal_faa_paths_all.txt",
-#         pyrodigal_gff_paths=f"{config['output_dir']}/pyrodigal_batches/pyrodigal_gff_paths_all.txt",
-#     params:
-#         mmseqs2_batch_size=f"{config['mmseqs2_batch_size']}",
-#         pyrodigal_batches_dir=f"{config['output_dir']}/pyrodigal_batches"
-#     shell:
-#         """
-#         cat {input.pyrodigal_annotations}/*.faa > {output.pyrodigal_faa_paths}
-#         cat {input.pyrodigal_annotations}/*.ffn > {output.pyrodigal_gff_paths}
-#         split -d -l {params.mmseqs2_batch_size} {output.pyrodigal_faa_paths} {params.pyrodigal_batches_dir}/pyrodigal_faa_batches_N
-#         split -d -l {params.mmseqs2_batch_size} {output.pyrodigal_gff_paths} {params.pyrodigal_batches_dir}/pyrodigal_gff_batches_N
-#         """
+#         touch(f"{config['output_dir']}/pyrodigal.done")
+#     run:
+#         pass
 
-# def get_mmseqs2_batches(indir, faa=True):
-#     list_of_samples = [path.split("_N")[-1] for path in glob.glob(indir + "/pyrodigal_faa_batches_N*")]
-#     return sorted(list_of_samples)
+checkpoint list_pyrodigal_full:
+    input:
+        dir_list=get_pyrodigal_outputs,
+    output:
+        check_file=f"{config['output_dir']}/list_pyrodigal_full.done"
+    params:
+        mmseqs2_num_batches=f"{config['mmseqs2_num_batches']}",
+        batches_dir=f"{config['output_dir']}/pyrodigal_batches",
+        outpref="mmseqs2_batch_N"
+    script: "scripts/split_file_mmseqs.py"
+
+# def get_mmseqs2_batches(wildcards):
+#     checkpoint_output = checkpoints.list_pyrodigal_full.get(**wildcards).output[0]
+#     return expand("{out_dir}/pyrodigal_batches/mmseqs2_batch_N{batch_ID}_faa.txt", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+
+# rule check_list_pyrodigal_full:
+#     input:
+#         get_mmseqs2_batches
+#     output:
+#         touch(f"{config['output_dir']}/list_pyrodigal_full.done")
+#     run:
+#         pass
 
 # rule concatenate_faa:
 #     input:
-#         batch_file = expand(f"{config['output_dir']}/pyrodigal_batches/pyrodigal_faa_batches_N{{batch_ID}}", batch_ID=get_mmseqs2_batches(f"{config['output_dir']}/pyrodigal_batches")),
+#         batch_file = f"{config['output_dir']}/pyrodigal_batches/mmseqs2_batch_N{{batch_ID}}_faa.txt",
 #     output:
-#         outfile = f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat_batch_{{batch_ID}}.faa"
+#         outfile = f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat_batch_N{{batch_ID}}.faa"
 #     conda:
 #         "WTBcluster"
 #     threads: 1
@@ -90,6 +87,18 @@ rule aggregate_pyrodigal:
 
 #         done < {input.batch_file}
 #         """
+
+# def get_mmseqs2_concat_batches(wildcards):
+#     checkpoint_output = checkpoints.concatenate_faa.get(**wildcards).output[0]
+#     return expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+
+# rule check_concatenate_faa:
+#     input:
+#         get_mmseqs2_concat_batches
+#     output:
+#         touch(f"{config['output_dir']}/concatenate_faa.done")
+#     run:
+#         pass
 
 # # Function to list files
 # def list_files(dir, extension, sort=False):
@@ -168,7 +177,7 @@ rule aggregate_pyrodigal:
 
 # rule mmseqs_cluster_write:
 #     input:
-#         infiles = lambda wildcards: get_mmseqs2_clusters(wildcards),
+#         infiles = lambda wildcards: get_mmseqs2_clusters(os.path.join(config['output_dir'], "mmseqs2_clustering")),
 #         clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl"
 #     output:
 #         outfile = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.tsv"
@@ -198,5 +207,13 @@ rule aggregate_pyrodigal:
 #         "WTBcluster"
 #     threads: 1
 #     script: "scripts/tokenize_genomes.py"
+
+# rule aggregate_tokens:
+#     input:
+#         get_tokenisation_outputs
+#     output:
+#         touch(f"{config['output_dir']}/tokenisation.done")
+#     run:
+#         pass
 
 # add bakta annotation
