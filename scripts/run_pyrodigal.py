@@ -1,4 +1,4 @@
-import Bio.SeqIO
+from Bio import SeqIO
 import pyrodigal
 import gzip
 import os
@@ -20,13 +20,16 @@ def write_fasta(sequences, output_file):
 
 def get_basename(file_path):
     """Gets base name of file"""
-    file_path = '/path/to/your/file.txt'
     base_name = os.path.basename(file_path)
     file_name_without_extension, _ = os.path.splitext(base_name)
     return file_name_without_extension
 
 def run_pyrodigal(file_list, output_dir):
     """Trains and runs Pyrodigal on input sequences."""
+    
+    if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+
     with open(file_list, "r") as f:
         for line in f:
             # generate sequences
@@ -35,7 +38,7 @@ def run_pyrodigal(file_list, output_dir):
 
             # train the orf_finder
             orf_finder = pyrodigal.GeneFinder()
-            orf_finder.train([bytes(record.seq) for record in sequences])
+            orf_finder.train("TTAATTAATTAA".join([str(record.seq) for record in sequences]))
 
             # get file basename
             basename = get_basename(file_name)
@@ -49,7 +52,7 @@ def run_pyrodigal(file_list, output_dir):
             with open(output_path + ".gff", "w") as o_gff, open(output_path + ".faa", "w") as o_faa,  open(output_path + ".ffn", "w") as o_ffn:               
                 for record in sequences:
                     # find genes in contig
-                    orfs = orf_finder.find_genes(bytes(record.seq))
+                    orfs = orf_finder.find_genes(str(record.seq))
 
                     # write to open files
                     orfs.write_genes(o_ffn, basename + "_" + record.id, full_id=True)

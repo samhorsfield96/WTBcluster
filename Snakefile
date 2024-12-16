@@ -5,13 +5,12 @@ configfile: "config.yaml"
 
 def get_pyrodigal_outputs(wildcards):
     checkpoint_output = checkpoints.split_file_batch.get(**wildcards).output[0]
-    return expand("{out_dir}/pyrodigal_annotations/batch_{batch_ID}_ann/faa_list.txt", out_dir=config['output_dir'], batch_ID=range(config['pyrodigal_num_batches']))
+    return expand("{out_dir}/pyrodigal_annotations/batch_{batch_ID}_ann", out_dir=config['output_dir'], batch_ID=range(config['pyrodigal_num_batches']))
 
 # Define the final output
 rule all:
    input:
         f"{config['output_dir']}/pyrodigal.done",
-        #pyrodigal_faa_paths = f"{config['output_dir']}/pyrodigal_batches/pyrodigal_faa_paths_all.txt",
 
 checkpoint split_file_batch:
     input:
@@ -26,19 +25,20 @@ checkpoint split_file_batch:
 rule pyrodigal:
     input:
         batch_file=f"{config['output_dir']}/pyrodigal_batches/pyrodigal_batch_N{{batch_ID}}.txt"
+        #batch_file=expand("{out_dir}/pyrodigal_batches/pyrodigal_batch_N{batch_ID}.txt", out_dir=config['output_dir'], batch_ID=range(config['pyrodigal_num_batches']))
     output:
-        outdir=directory(f"{config['output_dir']}/pyrodigal_annotations/batch_{{batch_ID}}_ann"),
-        faa_list=f"{config['output_dir']}/pyrodigal_annotations/batch_{{batch_ID}}_ann/faa_list.txt",
-        gff_list=f"{config['output_dir']}/pyrodigal_annotations/batch_{{batch_ID}}_ann/gff_list.txt"
+        outdir=f"{config['output_dir']}/pyrodigal_annotations/batch_{{batch_ID}}_ann",
+        # faa_list=f"{config['output_dir']}/pyrodigal_annotations/batch_{{batch_ID}}_ann/faa_list.txt",
+        # gff_list=f"{config['output_dir']}/pyrodigal_annotations/batch_{{batch_ID}}_ann/gff_list.txt"
     conda:
         "WTBcluster"
     threads: 1
-    shell: 
-        """
-        python scripts/run_pyrodigal.py
-        ls -d -1 {output.outdir}/*.faa > {output.faa_list}
-        ls -d -1 {output.outdir}/*.gff > {output.gff_list}
-        """
+    script: "scripts/run_pyrodigal.py"
+        # """
+        # python scripts/run_pyrodigal.py
+        # ls -d -1 {output.outdir}/*.faa > {output.faa_list}
+        # ls -d -1 {output.outdir}/*.gff > {output.gff_list}
+        # """
 
 rule aggregate_pyrodigal:
     input:

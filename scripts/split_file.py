@@ -13,6 +13,9 @@ def split_file(file_path, num_splits, output_dir, outpref):
     Returns:
         None
     """
+    if not os.path.exists(output_dir):
+            os.mkdir(output_dir)
+
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"The file '{file_path}' does not exist.")
 
@@ -23,12 +26,11 @@ def split_file(file_path, num_splits, output_dir, outpref):
         raise ValueError("num_splits must be greater than 0.")
 
     lines_per_split = math.ceil(total_lines / num_splits)
+    print("Files per pyrodigal batch: {}".format(lines_per_split))
 
-    output_files = []
     with open(file_path, 'r') as f:
         for i in range(num_splits):
             output_file = os.path.join(output_dir, f"{outpref}{i}.txt")
-            output_files.append(output_file)
 
             with open(output_file, 'w') as out_f:
                 for _ in range(lines_per_split):
