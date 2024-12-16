@@ -1,43 +1,40 @@
 import os
 import sys
+import math
 
-def split_file(input_file, lines_per_file, output_dir, outpref):
+def split_file(file_path, num_splits, output_dir, outpref):
     """
-    Splits a file into multiple smaller files with a specified number of lines each.
+    Splits a large file into `num_splits` smaller files.
 
-    Parameters:
-    input_file (str): Path to the input file.
-    lines_per_file (int): Number of lines per output file.
-    output_dir (str): Directory to save the output files.
+    Args:
+        file_path (str): Path to the large file to split.
+        num_splits (int): Number of smaller files to create.
+
+    Returns:
+        None
     """
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"The file '{file_path}' does not exist.")
 
-    try:
-        with open(input_file, 'r') as infile:
-            file_count = 0
-            lines_written = 0
-            output_file = None
+    with open(file_path, 'r') as f:
+        total_lines = sum(1 for _ in f)
 
-            for line in infile:
-                if lines_written % lines_per_file == 0:
-                    if output_file:
-                        output_file.close()
-                    file_count += 1
-                    output_path = os.path.join(output_dir, f"{outpref}{file_count}.txt")
-                    output_file = open(output_path, 'w')
+    if num_splits <= 0:
+        raise ValueError("num_splits must be greater than 0.")
 
-                output_file.write(line)
-                lines_written += 1
+    lines_per_split = math.ceil(total_lines / num_splits)
 
-            if output_file:
-                output_file.close()
+    output_files = []
+    with open(file_path, 'r') as f:
+        for i in range(num_splits):
+            output_file = os.path.join(output_dir, f"{outpref}{i}.txt")
+            output_files.append(output_file)
 
-        print(f"Split complete: {file_count} files created in '{output_dir}'.")
+            with open(output_file, 'w') as out_f:
+                for _ in range(lines_per_split):
+                    line = f.readline()
+                    if not line:
+                        break
+                    out_f.write(line)
 
-    except FileNotFoundError:
-        print(f"Error: File '{input_file}' not found.")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-split_file(snakemake.input.file_list, snakemake.params.pyrodigal_batch_size, snakemake.output.batches_dir, snakemake.params.outpref)
+split_file(snakemake.input.file_list, snakemake.params.pyrodigal_num_batches, snakemake.output.batches_dir, snakemake.params.outpref)
