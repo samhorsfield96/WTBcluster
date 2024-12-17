@@ -16,11 +16,11 @@ rule all:
         #f"{config['output_dir']}/pyrodigal.done",
         f"{config['output_dir']}/list_pyrodigal_full.done",
         #f"{config['output_dir']}/concatenate_faa.done",
-        f"{config['output_dir']}/mmseqs_cluster.done",
-        #f"{config['output_dir']}/tokenised_genomes/all_clusters.pkl",
-        #f"{config['output_dir']}/tokenised_genomes/all_clusters.tsv",
+        #f"{config['output_dir']}/mmseqs_cluster.done",
+        f"{config['output_dir']}/tokenised_genomes/all_clusters.pkl",
+        f"{config['output_dir']}/tokenised_genomes/all_clusters.tsv",
+        f"{config['output_dir']}/tokenised_genomes/reps.pkl",
         #f"{config['output_dir']}/tokenisation.done",
-        #f"{config['output_dir']}/tokenised_genomes/reps.pkl"
 
 checkpoint split_file_batch:
     input:
@@ -103,19 +103,19 @@ def get_mmseqs2_clusters(wildcards):
     checkpoint_output = checkpoints.mmseqs_cluster.get(**wildcards).output[0]
     return expand("{out_dir}/mmseqs2_clustering/clustering_{batch_ID}_cluster.tsv", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
 
-rule check_mmseqs_cluster:
-    input:
-        get_mmseqs2_clusters
-    output:
-        touch(f"{config['output_dir']}/mmseqs_cluster.done")
-    run:
-        pass
+# rule check_mmseqs_cluster:
+#     input:
+#         get_mmseqs2_clusters
+#     output:
+#         touch(f"{config['output_dir']}/mmseqs_cluster.done")
+#     run:
+#         pass
 
 rule mmseqs_cluster_merge:
     input:
         infiles=get_mmseqs2_clusters
     output:
-        clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl"
+        clusters = f"{config['output_dir']}/tokenised_genomes/all_clusters.pkl"
     conda:
         "WTBcluster"
     threads: 1
@@ -124,24 +124,24 @@ rule mmseqs_cluster_merge:
 rule mmseqs_cluster_write:
     input:
         infiles=get_mmseqs2_clusters,
-        clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl"
+        clusters = f"{config['output_dir']}/tokenised_genomes/all_clusters.pkl"
     output:
-        outfile = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.tsv"
+        outfile = f"{config['output_dir']}/tokenised_genomes/all_clusters.tsv"
     conda:
         "WTBcluster"
     threads: 1
     script: "scripts/write_mmseqs2_clusters.py"
 
-# rule generate_token_db:
-#     input:
-#         clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.tsv"
-#     output:
-#         out_db = directory(f"{config['output_dir']}/tokenised_genomes/gene_tokens.db"),
-#         out_reps = f"{config['output_dir']}/tokenised_genomes/reps.pkl"
-#     conda:
-#         "WTBcluster"
-#     threads: 1
-#     script: "scripts/generate_token_db.py"
+rule generate_token_db:
+    input:
+        clusters = f"{config['output_dir']}/tokenised_genomes/all_clusters.tsv"
+    output:
+        out_db = directory(f"{config['output_dir']}/tokenised_genomes/gene_tokens.db"),
+        out_reps = f"{config['output_dir']}/tokenised_genomes/reps.pkl"
+    conda:
+        "WTBcluster"
+    threads: 1
+    script: "scripts/generate_token_db.py"
 
 # rule tokenise_genomes:
 #     input:
