@@ -14,8 +14,8 @@ def get_tokenisation_outputs(wildcards):
 rule all:
    input:
         #f"{config['output_dir']}/pyrodigal.done",
-        f"{config['output_dir']}/list_pyrodigal_full.done"
-        #f"{config['output_dir']}/concatenate_faa.done",
+        f"{config['output_dir']}/list_pyrodigal_full.done",
+        f"{config['output_dir']}/concatenate_faa.done",
         #f"{config['output_dir']}/tokenisation.done",
         #out_db = f"{config['output_dir']}/mmseqs2_clustering/gene_tokens.db",
 
@@ -47,7 +47,7 @@ checkpoint pyrodigal:
 #     run:
 #         pass
 
-checkpoint list_pyrodigal_full:
+rule list_pyrodigal_full:
     input:
         dir_list=get_pyrodigal_outputs,
     output:
@@ -58,47 +58,31 @@ checkpoint list_pyrodigal_full:
         outpref="mmseqs2_batch_N"
     script: "scripts/split_file_mmseqs.py"
 
-# def get_mmseqs2_batches(wildcards):
-#     checkpoint_output = checkpoints.list_pyrodigal_full.get(**wildcards).output[0]
-#     return expand("{out_dir}/pyrodigal_batches/mmseqs2_batch_N{batch_ID}_faa.txt", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+checkpoint concatenate_faa:
+    input:
+        batch_file = f"{config['output_dir']}/pyrodigal_batches/mmseqs2_batch_N{{batch_ID}}_faa.txt",
+    output:
+        outfile = f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat_batch_N{{batch_ID}}.faa"
+    conda:
+        "WTBcluster"
+    threads: 1
+    shell:
+        """
+        > {output.outfile}
+        while IFS= read -r line || [[ -n "$line" ]]; do
 
-# rule check_list_pyrodigal_full:
-#     input:
-#         get_mmseqs2_batches
-#     output:
-#         touch(f"{config['output_dir']}/list_pyrodigal_full.done")
-#     run:
-#         pass
+            cat $line >> {output.outfile}
 
-# rule concatenate_faa:
-#     input:
-#         batch_file = f"{config['output_dir']}/pyrodigal_batches/mmseqs2_batch_N{{batch_ID}}_faa.txt",
-#     output:
-#         outfile = f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat_batch_N{{batch_ID}}.faa"
-#     conda:
-#         "WTBcluster"
-#     threads: 1
-#     shell:
-#         """
-#         > {output.outfile}
-#         while IFS= read -r line || [[ -n "$line" ]]; do
+        done < {input.batch_file}
+        """
 
-#             cat $line >> {output.outfile}
-
-#         done < {input.batch_file}
-#         """
-
-# def get_mmseqs2_concat_batches(wildcards):
-#     checkpoint_output = checkpoints.concatenate_faa.get(**wildcards).output[0]
-#     return expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
-
-# rule check_concatenate_faa:
-#     input:
-#         get_mmseqs2_concat_batches
-#     output:
-#         touch(f"{config['output_dir']}/concatenate_faa.done")
-#     run:
-#         pass
+rule check_concatenate_faa:
+    input:
+        expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+    output:
+        touch(f"{config['output_dir']}/concatenate_faa.done")
+    run:
+        pass
 
 # # Function to list files
 # def list_files(dir, extension, sort=False):
