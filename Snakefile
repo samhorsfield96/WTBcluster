@@ -17,8 +17,10 @@ rule all:
         f"{config['output_dir']}/list_pyrodigal_full.done",
         #f"{config['output_dir']}/concatenate_faa.done",
         f"{config['output_dir']}/mmseqs_cluster.done",
+        #f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl",
+        #f"{config['output_dir']}/mmseqs2_clustering/all_clusters.tsv",
         #f"{config['output_dir']}/tokenisation.done",
-        #out_db = f"{config['output_dir']}/mmseqs2_clustering/gene_tokens.db",
+        #f"{config['output_dir']}/mmseqs2_clustering/reps.pkl"
 
 checkpoint split_file_batch:
     input:
@@ -93,7 +95,8 @@ checkpoint mmseqs_cluster:
         mmseqs2_min_cov=f"{config['mmseqs2_min_cov']}",
         mmseqs2_cov_mode=f"{config['mmseqs2_cov_mode']}",
         mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}",
-        outpref="clustering_"
+        outpref="clustering_",
+        
     script: "scripts/run_mmseqs2.py"
 
 def get_mmseqs2_clusters(wildcards):
@@ -108,15 +111,9 @@ rule check_mmseqs_cluster:
     run:
         pass
 
-# working up to this point
-
-# def get_mmseqs2_clusters(indir):
-#     list_of_samples = [path.split("/clustered_")[-1].replace("_cluster.tsv", "") for path in glob.glob(indir + "/clustered_*_cluster.tsv")]
-#     return sorted(list_of_samples)
-
 # rule mmseqs_cluster_merge:
 #     input:
-#         infiles= expand(f"{config['output_dir']}/mmseqs2_clustering/clustered_{{batch_ID}}_cluster.tsv", batch_ID=get_mmseqs2_clusters(f"{config['output_dir']}/mmseqs2_clustering"))
+#         infiles=get_mmseqs2_clusters
 #     output:
 #         clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl"
 #     conda:
@@ -126,7 +123,7 @@ rule check_mmseqs_cluster:
 
 # rule mmseqs_cluster_write:
 #     input:
-#         infiles = lambda wildcards: get_mmseqs2_clusters(os.path.join(config['output_dir'], "mmseqs2_clustering")),
+#         infiles=get_mmseqs2_clusters,
 #         clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.pkl"
 #     output:
 #         outfile = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.tsv"
@@ -139,7 +136,7 @@ rule check_mmseqs_cluster:
 #     input:
 #         clusters = f"{config['output_dir']}/mmseqs2_clustering/all_clusters.tsv"
 #     output:
-#         out_db = f"{config['output_dir']}/mmseqs2_clustering/gene_tokens.db",
+#         out_db = directory(f"{config['output_dir']}/mmseqs2_clustering/gene_tokens.db"),
 #         out_reps = f"{config['output_dir']}/mmseqs2_clustering/reps.pkl"
 #     conda:
 #         "WTBcluster"

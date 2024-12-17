@@ -39,4 +39,4 @@ def write_mmseqs2_clusters(rep_files, outfile, clusters):
 
             print("Finished: {}".format(rep_file))
 
-write_mmseqs2_clusters(snakemake.input.indir, snakemake.output.outfile, snakemake.input.clusters)
+write_mmseqs2_clusters(snakemake.input.infiles, snakemake.output.outfile, snakemake.input.clusters)

@@ -10,5 +10,5 @@ dependencies:
   - pandas
   - biopython
   - snakemake
-  - rocksdb
+  - python-rocksdb
   - natsort

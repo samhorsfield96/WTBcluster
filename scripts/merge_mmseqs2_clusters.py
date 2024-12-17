@@ -61,4 +61,4 @@ def merge_mmseqs2(rep_files, clusters):
     with open(clusters, 'wb') as handle:
         pickle.dump(output_dicts, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-merge_mmseqs2_clusters(snakemake.input.infiles, snakemake.output.clusters)
+merge_mmseqs2(snakemake.input.infiles, snakemake.output.clusters)

@@ -61,7 +61,7 @@ def run_mmseqs(file_list, output_dir, outpref, mmseqs2_tmp_dir, mmseqs2_min_ID, 
                     "--seq-id-mode", str(mmseqs2_ID_mode),
                     "--cov-mode", str(mmseqs2_cov_mode),
                     "--threads", str(threads),
-                    "-v", str(3) # only print errors and warnings
+                    "-v", str(2) # only print errors and warnings
                 ], check=True)
 
                 print(f"Clustering results saved to {output_prefix}")
