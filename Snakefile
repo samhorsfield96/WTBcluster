@@ -15,7 +15,8 @@ rule all:
    input:
         #f"{config['output_dir']}/pyrodigal.done",
         f"{config['output_dir']}/list_pyrodigal_full.done",
-        f"{config['output_dir']}/concatenate_faa.done",
+        #f"{config['output_dir']}/concatenate_faa.done",
+        f"{config['output_dir']}/mmseqs_cluster.done",
         #f"{config['output_dir']}/tokenisation.done",
         #out_db = f"{config['output_dir']}/mmseqs2_clustering/gene_tokens.db",
 
@@ -76,74 +77,38 @@ checkpoint concatenate_faa:
         done < {input.batch_file}
         """
 
-rule check_concatenate_faa:
+def get_concatentated_files():
+    return expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+
+# Run MMseqs clustering
+checkpoint mmseqs_cluster:
     input:
-        expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+        file_list=get_concatentated_files()
     output:
-        touch(f"{config['output_dir']}/concatenate_faa.done")
+        output_dir=directory(f"{config['output_dir']}/mmseqs2_clustering")
+    threads: 40
+    params:
+        mmseqs2_tmp_dir=f"{config['mmseqs2_tmp_dir']}",
+        mmseqs2_min_ID=f"{config['mmseqs2_min_ID']}",
+        mmseqs2_min_cov=f"{config['mmseqs2_min_cov']}",
+        mmseqs2_cov_mode=f"{config['mmseqs2_cov_mode']}",
+        mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}",
+        outpref="clustering_"
+    script: "scripts/run_mmseqs2.py"
+
+def get_mmseqs2_clusters(wildcards):
+    checkpoint_output = checkpoints.mmseqs_cluster.get(**wildcards).output[0]
+    return expand("{out_dir}/mmseqs2_clustering/clustering_{batch_ID}_cluster.tsv", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+
+rule check_mmseqs_cluster:
+    input:
+        get_mmseqs2_clusters
+    output:
+        touch(f"{config['output_dir']}/mmseqs_cluster.done")
     run:
         pass
 
-# # Function to list files
-# def list_files(dir, extension, sort=False):
-#     input_files = glob.glob(os.path.join(dir, "*" + extension))
-#     if sort:
-#         input_files.sort()
-#     return input_files
-
-# # Get number of iterations based on input files
-# input_files = list_files(f"{config['output_dir']}/mmseqs2_batches", ".faa", sort=True)
-# num_iterations = len(input_files)
-
-# rule iteration1:
-#     input:
-#         expand( f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat_batch_{{iteration}}.faa", iteration=range(num_iterations)),
-
-# # Get current and previous files dynamically
-# def get_iteration(wildcards):
-#     return input_files[int(wildcards.iteration)]
-
-# def get_iteration_rep(wildcards):
-#     previous_file = f"{config['output_dir']}/mmseqs2_clustering/clustered_{int(wildcards.iteration) - 1}_rep_seq.fasta"
-#     if int(wildcards.batch_ID) == 0 or not os.path.exists(previous_file):
-#         return None  # No previous file for first iteration
-#     return previous_file
-
-# # Concatenate FASTA files
-# rule concatenate_fasta:
-#     input:
-#         current=lambda wildcards: get_iteration(wildcards),
-#         previous=lambda wildcards: get_iteration_rep(wildcards)
-#     output:
-#         outfile=f"{config['output_dir']}/mmseqs2_clustering/concatenated_{{iteration}}.fasta"
-#     shell:
-#         """
-#         if [ -z "{input.previous}" ]; then
-#             cp {input.current} {output.outfile}
-#         else
-#             cat {input.current} {input.previous} > {output.outfile}
-#         fi
-#         """
-
-# # Run MMseqs clustering
-# rule mmseqs_cluster:
-#     input:
-#         fasta=f"{config['output_dir']}/mmseqs2_clustering/concatenated_{{iteration}}.fasta"
-#     output:
-#         outpref=f"{config['output_dir']}/mmseqs2_clustering/clustered_{{iteration}}"
-#     threads: 40
-#     params:
-#         mmseqs2_tmp_dir=f"{config['mmseqs2_tmp_dir']}",
-#         mmseqs2_min_ID=f"{config['mmseqs2_min_ID']}",
-#         mmseqs2_min_cov=f"{config['mmseqs2_min_cov']}",
-#         mmseqs2_cov_mode=f"{config['mmseqs2_cov_mode']}",
-#         mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}"
-#     shell:
-#         """
-#         mmseqs easy-linclust {input.fasta} {output.outpref} {params.mmseqs2_tmp_dir} \
-#             --min-seq-id {params.mmseqs2_min_ID} -c {params.mmseqs2_min_cov} \
-#             --seq-id-mode {params.mmseqs2_ID_mode} --threads {threads} --cov-mode {params.mmseqs2_cov_mode}
-#         """
+# working up to this point
 
 # def get_mmseqs2_clusters(indir):
 #     list_of_samples = [path.split("/clustered_")[-1].replace("_cluster.tsv", "") for path in glob.glob(indir + "/clustered_*_cluster.tsv")]

@@ -11,3 +11,4 @@ dependencies:
   - biopython
   - snakemake
   - rocksdb
+  - natsort

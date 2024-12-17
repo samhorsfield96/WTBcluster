@@ -2,6 +2,7 @@ import os
 import sys
 import math
 import glob
+from natsort import natsorted
 
 def split_file(dir_list, num_splits, output_dir, outpref):
     """
@@ -14,8 +15,8 @@ def split_file(dir_list, num_splits, output_dir, outpref):
     all_gff_files = []
 
     for ann_dir in dir_list:
-        all_faa_files.extend(sorted(glob.glob(ann_dir + "/*.faa")))
-        all_gff_files.extend(sorted(glob.glob(ann_dir + "/*.gff")))
+        all_faa_files.extend(natsorted(glob.glob(ann_dir + "/*.faa")))
+        all_gff_files.extend(natsorted(glob.glob(ann_dir + "/*.gff")))
 
     total_files = len(all_faa_files)
     lines_per_split = math.ceil(total_files / num_splits)
