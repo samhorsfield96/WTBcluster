@@ -83,7 +83,13 @@ def tokenise_gff(files_list, outfile, gene_tokens):
             tokenised_genome_str = " ".join(tokenised_genome)
             o.write(basename + "\t" + tokenised_genome_str + "\n")
 
-def tokenize_genomes(batch_file, outfile, gene_tokens_db):
+def tokenize_genomes(batch_file, output_dir, gene_tokens_db):
+
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
+    
+    #f"{config['output_dir']}/pyrodigal_batches/mmseqs2_batch_N{{batch_ID}}_gff.txt"
+    #f"{config['output_dir']}/tokenised_genomes/tokenized_genomes_batch_{{batch_ID}}.txt"
 
     opts = rocksdb.Options()
     opts.max_open_files = 300000000
@@ -103,7 +109,10 @@ def tokenize_genomes(batch_file, outfile, gene_tokens_db):
                 break
             files_list.append(line.rstrip())
 
+    file_index = batch_file.split("mmseqs2_batch_N")[-1].replace("_gff.txt", "")
+    outfile = os.path.join(output_dir, "tokenized_genomes_batch_" + file_index + ".txt")
+
     tokenise_gff(files_list, outfile, gene_tokens)
 
         
-tokenize_genomes(snakemake.input.batch_file, snakemake.output.outfile, snakemake.input.out_db)
+tokenize_genomes(snakemake.input.batch_file, snakemake.output.output_dir, snakemake.input.out_db)
