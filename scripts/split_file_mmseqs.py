@@ -36,6 +36,8 @@ def split_file(dir_list, num_splits, output_dir, outpref):
                 out_gff.write(all_gff_files[file_index] + "\n")
                 file_index += 1
 
-split_file(snakemake.input.dir_list, int(snakemake.params.mmseqs2_num_batches), snakemake.params.batches_dir, snakemake.params.outpref)
-with open(snakemake.output.check_file, "w") as f:
-    f.write(" ")
+                # if reached end of file end
+                if file_index >= total_files:
+                    sys.exit(0)
+
+split_file(snakemake.input.dir_list, int(snakemake.params.mmseqs2_num_batches), snakemake.output.output_dir, snakemake.params.outpref)

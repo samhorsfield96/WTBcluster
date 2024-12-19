@@ -3,36 +3,34 @@ import os
 
 configfile: "config.yaml"
 
-def get_pyrodigal_outputs(wildcards, faa=True):
-    checkpoint_output = checkpoints.split_file_batch.get(**wildcards).output[0]
-    return expand("{out_dir}/pyrodigal_annotations/batch_{batch_ID}_ann", out_dir=config['output_dir'], batch_ID=range(config['pyrodigal_num_batches']))
+
+def get_tokenized_genomes(wildcards):
+    checkpoint_output = checkpoints.list_pyrodigal_full.get(**wildcards).output[0]
+    return expand("{out_dir}/tokenised_genomes/tokenized_genomes_batch_{batch_ID}.txt", out_dir=config['output_dir'], batch_ID=range(config['pyrodigal_num_batches']))
     
 # Define the final output
 rule all:
    input:
-        #f"{config['output_dir']}/pyrodigal.done",
-        f"{config['output_dir']}/list_pyrodigal_full.done",
-        #f"{config['output_dir']}/concatenate_faa.done",
-        #f"{config['output_dir']}/mmseqs_cluster.done",
+        #f"{config['output_dir']}/list_pyrodigal_full.done",
+        #expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches'])),
         f"{config['output_dir']}/merged_clusters/all_clusters.pkl",
         f"{config['output_dir']}/merged_clusters/all_clusters.tsv",
         f"{config['output_dir']}/merged_clusters/reps.pkl",
-        #f"{config['output_dir']}/tokenisation.done",
-        expand("{out_dir}/tokenised_genomes/tokenized_genomes_batch_{batch_ID}.txt", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+        get_tokenized_genomes
 
 checkpoint split_file_batch:
     input:
         file_list=f"{config['file_list']}",
     output:
-        batches_dir=directory(f"{config['output_dir']}/pyrodigal_batches")
+        batches_dir=directory(f"{config['output_dir']}/pyrodigal_input_batches")
     params:
         pyrodigal_num_batches=int(f"{config['pyrodigal_num_batches']}"),
         outpref="pyrodigal_batch_N"
     script: "scripts/split_file_pyrodigal.py"
 
-checkpoint pyrodigal:
+rule pyrodigal:
     input:
-        batch_file=f"{config['output_dir']}/pyrodigal_batches/pyrodigal_batch_N{{batch_ID}}.txt"
+        batch_file=f"{config['output_dir']}/pyrodigal_input_batches/pyrodigal_batch_N{{batch_ID}}.txt"
     output:
         outdir=directory(f"{config['output_dir']}/pyrodigal_annotations/batch_{{batch_ID}}_ann"),
     conda:
@@ -40,28 +38,24 @@ checkpoint pyrodigal:
     threads: 1
     script: "scripts/run_pyrodigal.py"
 
-# rule check_pyrodigal:
-#     input:
-#         get_pyrodigal_outputs
-#     output:
-#         touch(f"{config['output_dir']}/pyrodigal.done")
-#     run:
-#         pass
+def get_pyrodigal_outputs(wildcards):
+    checkpoint_output = checkpoints.split_file_batch.get(**wildcards).output[0]
+    return expand("{out_dir}/pyrodigal_annotations/batch_{batch_ID}_ann", out_dir=config['output_dir'], batch_ID=range(config['pyrodigal_num_batches']))
 
-rule list_pyrodigal_full:
+checkpoint list_pyrodigal_full:
     input:
         dir_list=get_pyrodigal_outputs,
     output:
-        check_file=f"{config['output_dir']}/list_pyrodigal_full.done"
+        output_dir=directory(f"{config['output_dir']}/pyrodigal_output_batches"),
+        #check_file=f"{config['output_dir']}/list_pyrodigal_full.done"
     params:
         mmseqs2_num_batches=f"{config['mmseqs2_num_batches']}",
-        batches_dir=f"{config['output_dir']}/pyrodigal_batches",
         outpref="mmseqs2_batch_N"
     script: "scripts/split_file_mmseqs.py"
 
-checkpoint concatenate_faa:
+rule concatenate_faa:
     input:
-        batch_file = f"{config['output_dir']}/pyrodigal_batches/mmseqs2_batch_N{{batch_ID}}_faa.txt",
+        batch_file=f"{config['output_dir']}/pyrodigal_output_batches/mmseqs2_batch_N{{batch_ID}}_faa.txt",
     output:
         outfile = f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat_batch_N{{batch_ID}}.faa"
     conda:
@@ -77,13 +71,14 @@ checkpoint concatenate_faa:
         done < {input.batch_file}
         """
 
-def get_concatentated_files():
-    return expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+def get_concatentated_files(wildcards):
+   checkpoint_output = checkpoints.list_pyrodigal_full.get(**wildcards).output[0]
+   return expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
 
 # Run MMseqs clustering
 checkpoint mmseqs_cluster:
     input:
-        file_list=get_concatentated_files()
+        file_list=get_concatentated_files#expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
     output:
         output_dir=directory(f"{config['output_dir']}/mmseqs2_clustering")
     threads: 40
@@ -143,9 +138,8 @@ rule generate_token_db:
 
 rule tokenise_genomes:
     input:
-        batch_file = f"{config['output_dir']}/pyrodigal_batches/mmseqs2_batch_N{{batch_ID}}_gff.txt",
-        #batch_files = expand("{out_dir}/pyrodigal_batches/mmseqs2_batch_N{batch_ID}_gff.txt", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches'])),
-        out_db = f"{config['output_dir']}/merged_clusters/gene_tokens.db"
+        batch_file=f"{config['output_dir']}/pyrodigal_output_batches/mmseqs2_batch_N{{batch_ID}}_gff.txt",
+        out_db = f"{config['output_dir']}/merged_clusters/gene_tokens.db",
     output:
         outfile=f"{config['output_dir']}/tokenised_genomes/tokenized_genomes_batch_{{batch_ID}}.txt"
     conda:
