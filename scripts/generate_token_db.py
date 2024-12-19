@@ -12,16 +12,6 @@ import pickle
 import rocksdb
 import math
 
-def generate_gene_id(unsplit_id):
-    name = unsplit_id.split("SAM")[1].split("_")[0].split(".")[0]
-    split_gene = unsplit_id.split("_")
-    gene_id = split_gene[-1]
-    contig_id = split_gene[-2][-5:]
-
-    gene_name = name + "_" + contig_id + "_" + gene_id
-
-    return gene_name
-
 def generate_token_db(cluster_file, out_db, out_reps):
 
     opts = rocksdb.Options()
@@ -54,8 +44,8 @@ def generate_token_db(cluster_file, out_db, out_reps):
             split_rep = split_line[0]
             split_seq = split_line[1]
 
-            rep = generate_gene_id(split_rep)
-            seq = generate_gene_id(split_seq)
+            rep = split_rep
+            seq = split_seq
 
             # allows use of non-sorted list
             if rep not in rep_to_token:
@@ -68,8 +58,10 @@ def generate_token_db(cluster_file, out_db, out_reps):
             # add sequence to cluster
             gene_tokens.put(seq.encode(), str(current_token).encode())
             counter += 1
-            if counter % 10000000 == 0:
+            if counter % 100000 == 0:
                 print("At index: {}".format(counter))
+                print(seq)
+                print(gene_tokens.get(seq.encode()).decode())
 
     # save data as pickle
     print("Saving token dictionaries...")
