@@ -17,7 +17,8 @@ rule all:
         f"{config['output_dir']}/merged_clusters/all_clusters.pkl",
         f"{config['output_dir']}/merged_clusters/all_clusters.tsv",
         f"{config['output_dir']}/merged_clusters/reps.pkl",
-        f"{config['output_dir']}/tokenisation.done"
+        #f"{config['output_dir']}/tokenisation.done",
+        expand("{out_dir}/tokenised_genomes/tokenized_genomes_batch_{batch_ID}.txt", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
 
 checkpoint split_file_batch:
     input:
@@ -140,27 +141,14 @@ rule generate_token_db:
     threads: 1
     script: "scripts/generate_token_db.py"
 
-checkpoint tokenise_genomes:
+rule tokenise_genomes:
     input:
         batch_file = f"{config['output_dir']}/pyrodigal_batches/mmseqs2_batch_N{{batch_ID}}_gff.txt",
+        #batch_files = expand("{out_dir}/pyrodigal_batches/mmseqs2_batch_N{batch_ID}_gff.txt", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches'])),
         out_db = f"{config['output_dir']}/merged_clusters/gene_tokens.db"
     output:
-        output_dir=directory(f"{config['output_dir']}/tokenised_genomes")
+        outfile=f"{config['output_dir']}/tokenised_genomes/tokenized_genomes_batch_{{batch_ID}}.txt"
     conda:
         "WTBcluster"
     threads: 1
     script: "scripts/tokenize_genomes.py"
-
-def get_tokenisation_outputs(wildcards):
-    checkpoint_output = checkpoints.tokenise_genomes.get(**wildcards).output[0]
-    return expand("{out_dir}/tokenised_genomes/tokenized_genomes_batch_{batch_ID}.txt", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
-
-rule check_tokenise_genomes:
-    input:
-        get_tokenisation_outputs
-    output:
-        touch(f"{config['output_dir']}/tokenisation.done")
-    run:
-        pass
-
-# add bakta annotation
