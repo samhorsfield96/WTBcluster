@@ -4,11 +4,11 @@ output_dir: /path/to/out/dir
 # tsv file with an absolute file path per line
 file_list: /path/to/file/list.txt
 
-# number of genomes per batch for saving pyrodigal files
+# number of batches for saving pyrodigal files (change to avoid overloading file system with output files)
 pyrodigal_num_batches: 2000
 
-# number of genomes per MMseqs2 batch
-mmseqs2_num_batches: 200000
+# number of batches for processing MMseqs2 files (ensure below 1 billion proteins per batch)
+mmseqs2_num_batches: 2000
 
 # MMseqs2 clustering parameters
 mmseqs2_min_ID: 0.5
