@@ -11,8 +11,6 @@ def get_tokenized_genomes(wildcards):
 # Define the final output
 rule all:
    input:
-        #f"{config['output_dir']}/list_pyrodigal_full.done",
-        #expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches'])),
         f"{config['output_dir']}/merged_clusters/all_clusters.pkl",
         f"{config['output_dir']}/merged_clusters/all_clusters.tsv",
         f"{config['output_dir']}/merged_clusters/reps.pkl",
@@ -47,7 +45,6 @@ checkpoint list_pyrodigal_full:
         dir_list=get_pyrodigal_outputs,
     output:
         output_dir=directory(f"{config['output_dir']}/pyrodigal_output_batches"),
-        #check_file=f"{config['output_dir']}/list_pyrodigal_full.done"
     params:
         mmseqs2_num_batches=f"{config['mmseqs2_num_batches']}",
         outpref="mmseqs2_batch_N"
@@ -78,7 +75,7 @@ def get_concatentated_files(wildcards):
 # Run MMseqs clustering
 checkpoint mmseqs_cluster:
     input:
-        file_list=get_concatentated_files#expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+        file_list=get_concatentated_files
     output:
         output_dir=directory(f"{config['output_dir']}/mmseqs2_clustering")
     threads: 40
@@ -95,14 +92,6 @@ checkpoint mmseqs_cluster:
 def get_mmseqs2_clusters(wildcards):
     checkpoint_output = checkpoints.mmseqs_cluster.get(**wildcards).output[0]
     return expand("{out_dir}/mmseqs2_clustering/clustering_{batch_ID}_cluster.tsv", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
-
-# rule check_mmseqs_cluster:
-#     input:
-#         get_mmseqs2_clusters
-#     output:
-#         touch(f"{config['output_dir']}/mmseqs_cluster.done")
-#     run:
-#         pass
 
 rule mmseqs_cluster_merge:
     input:

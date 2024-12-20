@@ -13,7 +13,6 @@ def run_mmseqs(file_list, output_dir, outpref, mmseqs2_tmp_dir, mmseqs2_min_ID, 
 
     # sort concatenated input files
     file_list = natsorted(file_list)
-    print(file_list)
     
     # determine iteration number
     current_index = 0

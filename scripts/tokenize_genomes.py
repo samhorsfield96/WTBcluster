@@ -21,16 +21,6 @@ def chunks(l, n):
     for i in range(0, n):
         yield l[i::n]
 
-def generate_gene_id(unsplit_id):
-    name = unsplit_id.split("SAM")[1].split("_")[0].split(".")[0]
-    split_gene = unsplit_id.split("_")
-    gene_id = split_gene[-1]
-    contig_id = split_gene[-2][-5:]
-
-    gene_name = name + "_" + contig_id + "_" + gene_id
-
-    return gene_name
-
 def tokenise_gff(files_list, outfile, gene_tokens):
     with open(outfile, "w") as o:
         for gff in files_list:
@@ -59,7 +49,6 @@ def tokenise_gff(files_list, outfile, gene_tokens):
                     split_gene_id = split_line[-1].split(";")[0].replace("ID=", "")
                     
                     contig_ID = split_gene_id[0].zfill(5)
-                    gene_ID = split_gene_id[1]
 
                     # add contig end
                     if contig_ID != current_contig:
@@ -103,7 +92,6 @@ def tokenize_genomes(batch_file, outfile, gene_tokens_db):
             files_list.append(line.rstrip())
 
     file_index = batch_file.split("mmseqs2_batch_N")[-1].replace("_gff.txt", "")
-    #outfile = os.path.join(output_dir, "tokenized_genomes_batch_" + file_index + ".txt")
 
     tokenise_gff(files_list, outfile, gene_tokens)
 

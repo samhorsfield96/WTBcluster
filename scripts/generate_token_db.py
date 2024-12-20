@@ -58,10 +58,8 @@ def generate_token_db(cluster_file, out_db, out_reps):
             # add sequence to cluster
             gene_tokens.put(seq.encode(), str(current_token).encode())
             counter += 1
-            if counter % 100000 == 0:
+            if counter % 1000000 == 0:
                 print("At index: {}".format(counter))
-                print(seq)
-                print(gene_tokens.get(seq.encode()).decode())
 
     # save data as pickle
     print("Saving token dictionaries...")
