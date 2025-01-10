@@ -84,6 +84,7 @@ checkpoint mmseqs_cluster:
         mmseqs2_min_ID=f"{config['mmseqs2_min_ID']}",
         mmseqs2_min_cov=f"{config['mmseqs2_min_cov']}",
         mmseqs2_cov_mode=f"{config['mmseqs2_cov_mode']}",
+        mmseqs2_cluster_mode=f"{config['mmseqs2_cluster_mode']}",
         mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}",
         outpref="clustering_",
         
