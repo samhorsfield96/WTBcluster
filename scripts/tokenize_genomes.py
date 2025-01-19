@@ -38,17 +38,11 @@ def tokenise_gff(files_list, outfile, gene_tokens):
                         continue
 
                     split_line = line.rstrip().split("\t")
-                    type = split_line[2]
-                    # if type == "region":
-                    #     # add space between contigs as synteny is unknown
-                    #     if len(tokenised_genome) > 0:
-                    #         tokenised_genome.append("_")
-                    # else:
                     
                     gene_strand = True if split_line[6] == "+" else False
                     split_gene_id = split_line[-1].split(";")[0].replace("ID=", "")
                     
-                    contig_ID = split_gene_id[0].zfill(5)
+                    contig_ID = split_line[0]
 
                     # add contig end
                     if contig_ID != current_contig:
