@@ -5,7 +5,7 @@ import os
 import subprocess
 from natsort import natsorted
 
-def run_mmseqs(file_list, output_dir, outpref, mmseqs2_tmp_dir, mmseqs2_min_ID, mmseqs2_min_cov, mmseqs2_cov_mode, mmseqs2_cluster_mode, mmseqs2_ID_mode, threads):
+def run_mmseqs(file_list, output_dir, outpref, mmseqs2_tmp_dir, mmseqs2_min_ID, mmseqs2_min_cov, mmseqs2_cov_mode, mmseqs2_cluster_mode, mmseqs2_ID_mode, mmseqs2_alignment_mode, threads):
     """Trains and runs mmseqs2 iteratively."""
     
     if not os.path.exists(output_dir):
@@ -60,6 +60,7 @@ def run_mmseqs(file_list, output_dir, outpref, mmseqs2_tmp_dir, mmseqs2_min_ID, 
                     "--seq-id-mode", str(mmseqs2_ID_mode),
                     "--cov-mode", str(mmseqs2_cov_mode),
                     "--cluster-mode", str(mmseqs2_cluster_mode),
+                    "--alignment-mode" , str(mmseqs2_alignment_mode),
                     "--threads", str(threads),
                     "-v", str(2) # only print errors and warnings
                 ], check=True)
@@ -69,4 +70,4 @@ def run_mmseqs(file_list, output_dir, outpref, mmseqs2_tmp_dir, mmseqs2_min_ID, 
             except subprocess.CalledProcessError as e:
                 print(f"An error occurred: {e}")
         
-run_mmseqs(snakemake.input.file_list, snakemake.output.output_dir, snakemake.params.outpref, snakemake.params.mmseqs2_tmp_dir, snakemake.params.mmseqs2_min_ID, snakemake.params.mmseqs2_min_cov, snakemake.params.mmseqs2_cov_mode, snakemake.params.mmseqs2_cluster_mode, snakemake.params.mmseqs2_ID_mode, snakemake.threads)
+run_mmseqs(snakemake.input.file_list, snakemake.output.output_dir, snakemake.params.outpref, snakemake.params.mmseqs2_tmp_dir, snakemake.params.mmseqs2_min_ID, snakemake.params.mmseqs2_min_cov, snakemake.params.mmseqs2_cov_mode, snakemake.params.mmseqs2_cluster_mode, snakemake.params.mmseqs2_ID_mode, snakemake.params.mmseqs2_alignment_mode, snakemake.threads)

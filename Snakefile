@@ -86,6 +86,7 @@ checkpoint mmseqs_cluster:
         mmseqs2_cov_mode=f"{config['mmseqs2_cov_mode']}",
         mmseqs2_cluster_mode=f"{config['mmseqs2_cluster_mode']}",
         mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}",
+        mmseqs2_alignment_mode=f"{config['mmseqs2_alignment_mode']}",
         outpref="clustering_",
         
     script: "scripts/run_mmseqs2.py"
