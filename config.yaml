@@ -10,12 +10,12 @@ pyrodigal_num_batches: 2000
 # number of batches for processing MMseqs2 files (ensure below 1 billion proteins per batch)
 mmseqs2_num_batches: 2000
 
-# MMseqs2 clustering parameters. To avoid partial genes being assigned as representatives, set 'mmseqs2_cov_mode: 0', 'mmseqs2_cluster_mode: 2' and 'mmseqs2_alignment_mode: 3'
+# MMseqs2 clustering parameters. To avoid partial genes being assigned as representatives, set 'mmseqs2_cov_mode: 0', 'mmseqs2_ID_mode: 2', 'mmseqs2_cluster_mode: 2' and 'mmseqs2_alignment_mode: 3'
 mmseqs2_min_ID: 0.5
 mmseqs2_min_cov: 0.5
 mmseqs2_cov_mode: 0
 mmseqs2_cluster_mode: 2
-mmseqs2_ID_mode: 0
+mmseqs2_ID_mode: 2
 mmseqs2_alignment_mode: 3
 mmseqs2_tmp_dir: /path/to/tmp/dir
 
