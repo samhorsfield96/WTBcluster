@@ -35,11 +35,12 @@ def get_options():
 
     return parser.parse_args()
 
-def main()
+def main():
     options = get_options()
     query = options.query
     reps = options.reps
-    mmseqs2_params = options.mmseqs2_params
+    mmseqs2_params = options.mmseqs2_params.replace('"', '')
+    #print(mmseqs2_params)
     mmseqs2_merged = options.mmseqs2_merged
     mmseqs2_all_fasta = options.mmseqs2_all_fasta
     outpref = options.outpref
@@ -49,16 +50,17 @@ def main()
     search_output = outpref + ".m8"
     try:
         subprocess.run([
-            "mmseqs", "easy-search", query, reps, search_output, tmp, mmseqs2_params
+            "mmseqs", "easy-search", query, reps, search_output, tmp, *mmseqs2_params.split(" ")
         ], check=True)
 
-        print(f"Clustering results saved to {output_prefix}")
+        print(f"Clustering results saved to {search_output}")
 
     except subprocess.CalledProcessError as e:
         print(f"An error occurred: {e}")
         sys.exit(1)
     
     # read in output file
+    print(f"Reading alignments {search_output}...")
     centroid_dict = defaultdict(set)
     with open(search_output, "r") as f:
         while True:
@@ -71,10 +73,13 @@ def main()
             query_id = split_line[0]
             centroid_id = split_line[1]
             centroid_dict[centroid_id].add(query_id)
+    #print("centroid_dict")
+    #print(centroid_dict)
 
     # search for hit sequences in merged mmseqs files
     cluster_dict = defaultdict(set)
     seq_to_centroid_dict = {}
+    print(f"Reading all clusters {mmseqs2_merged}...")
     with open(mmseqs2_merged, "r") as f:
         while True:
             line = f.readline()
@@ -90,28 +95,40 @@ def main()
                 seq_to_centroid_dict[seq_id] = centroid_id
                 for query_id in centroid_dict[centroid_id]:
                     cluster_dict[seq_id].add(query_id)
-    
+    #print("cluster_dict")
+    #print(cluster_dict)
+    #print("seq_to_centroid_dict")
+    #print(seq_to_centroid_dict)
+
     # go through all files in mmseqs2_all_fasta directory and find matches
     mmseqs2_all_fasta_dir = pathlib.Path(mmseqs2_all_fasta)
     mmseqs2_all_fasta_list = list(mmseqs2_all_fasta_dir.glob("*_all_seqs.fasta"))
 
     # search for hits in all fasta files
-    final_dict = defaultdict(list)
+    final_dict = defaultdict(set)
     for input_file in mmseqs2_all_fasta_list:
+        print(f"Reading FASTA {input_file}...")
         fasta_sequences = SeqIO.parse(open(input_file),'fasta')
         for fasta in fasta_sequences:
             name, description, sequence = fasta.id, fasta.description, str(fasta.seq)
 
+            # skip empty fields
+            if len(sequence) == 0:
+                continue
+
             if name in cluster_dict:
                 for query_id in cluster_dict[name]:
-                    final_dict[query_id].append((name, description, sequence))
+                    final_dict[query_id].add((name, description, sequence))
     
-    # write the fasta files
-    for query_id, hit_list in final_dict.items():
-        centroid_id = seq_to_centroid_dict[name]
+    #print("final_dict")
+    #print(final_dict)
 
-        with open(outpref + "_" + query_id + ".fasta") as o:
+    # write the fasta files
+    print(f"Printing output files...")
+    for query_id, hit_list in final_dict.items():
+        with open(outpref + "_" + query_id + ".fasta", "w") as o:
             for name, description, sequence in hit_list:
+                centroid_id = seq_to_centroid_dict[name]
                 o.write(">" + description + " cluster: " + centroid_id + "\n" + sequence + "\n")
     
     sys.exit(0)
