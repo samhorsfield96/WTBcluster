@@ -19,7 +19,8 @@ def get_options():
                     help='FASTA File merged representatives from MMseqs2.')
     IO.add_argument('--mmseqs2-params',
                     default="",
-                    help='String of MMseqs2 parameters for mmseqs easy-search in quotation ("") marks. Default runs default params.')
+                    help='String of MMseqs2 parameters for mmseqs easy-search in quotation ("") marks. Default runs default params.'
+                        '\nExample: "--min-seq-id 0.5 -c 0.5 --seq-id-mode 0 --threads 4 --cov-mode 0 --alignment-mode 3"')
     IO.add_argument('--mmseqs2-merged',
                     required=True,
                     help='Merged MMseqs2 all_clusters.tsv.')
