@@ -35,9 +35,9 @@ def merge_mmseqs2(rep_files, clusters):
                     cluster_to_rep[rep] = set()
                     cluster_to_rep[rep].add(rep)
 
-                # if sequence is in rep_to_cluster, means it has been 
+                # if sequence is in cluster_to_rep, means it has been 
                 # clustered with a new represenative
-                if seq in rep_to_cluster and seq != rep:
+                if seq in cluster_to_rep and seq != rep:
                     # update old reps
                     reps_set = cluster_to_rep[seq]
 
