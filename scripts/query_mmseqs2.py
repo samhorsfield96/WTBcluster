@@ -27,6 +27,14 @@ def get_options():
     IO.add_argument('--mmseqs2-all-fasta',
                     required=True,
                     help='Directory containing MMseqs all_seqs.fasta files.')
+    IO.add_argument('--length-discrepancy',
+                    default="0.0,0.0",
+                    help='Proportional length difference between query and returned proteins. Pass as comma separated list e.g. 0.9,1.1 will return proteins that are 10%/ smaller and larger than the query. If unspecifed, returns all.'
+                        'To set just one boundary, set the other to 0.0 e.g. 0.9,0.0 checks only the lower length boundary.')
+    IO.add_argument('--no-partials',
+                    default="False",
+                    action="store_true",
+                    help="Don't return partial sequences (i.e. without start and stop codon)")
     IO.add_argument('--tmp',
                     required=True,
                     help='Temporary directory.')
@@ -46,6 +54,18 @@ def main():
     mmseqs2_all_fasta = options.mmseqs2_all_fasta
     outpref = options.outpref
     tmp = options.tmp
+    length_discrepancy = options.length_discrepancy
+    no_partials = options.no_partials
+
+    length_discrepancy = [float(x) for x in length_discrepancy.split(",")]
+    assert(len(length_discrepancy) == 2)
+
+    # get query sequences and store
+    query_dict = {}
+    fasta_sequences = SeqIO.parse(open(query),'fasta')
+    for fasta in fasta_sequences:
+        name, sequence = fasta.id, str(fasta.seq)
+        query_dict[name] = sequence
 
     # run initial easy-search
     search_output = outpref + ".m8"
@@ -117,8 +137,25 @@ def main():
             if len(sequence) == 0:
                 continue
 
+            # Check if partials need to be returned
+            if no_partials and ";partial=00;" not in description:
+                continue
+
             if name in cluster_dict:
                 for query_id in cluster_dict[name]:
+                    
+                    len_query = len(query_dict[query_id])
+
+                    # determine if length of sequence is too short
+                    if length_discrepancy[0] > 0.0:
+                        if len(sequence) < len_query * length_discrepancy[0]:
+                            continue
+                    
+                    # determine if length of sequence is too long
+                    if length_discrepancy[1] > 0.0:
+                        if len(sequence) > len_query * length_discrepancy[1]:
+                            continue
+
                     final_dict[query_id].add((name, description, sequence))
     
     #print("final_dict")
