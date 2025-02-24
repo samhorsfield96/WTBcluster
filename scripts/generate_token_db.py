@@ -50,10 +50,10 @@ def generate_token_db(cluster_file, out_db, out_reps):
             # allows use of non-sorted list
             if rep not in rep_to_token:
                 token += 1
-                reps_dict[token] = rep
                 rep_to_token[rep] = token
             
             current_token = rep_to_token[rep]
+            reps_dict[current_token] = rep
             
             # add sequence to cluster
             gene_tokens.put(seq.encode(), str(current_token).encode())
