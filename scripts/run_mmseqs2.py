@@ -23,8 +23,8 @@ def run_mmseqs(file_list, output_dir, outpref, mmseqs2_tmp_dir, mmseqs2_min_ID, 
             break
     
     # check to see if all files complete
-    if current_index < len(file_list) - 1:
-        # start by getting startign file
+    if current_index < len(file_list):
+        # start by getting starting file
         for index in range(current_index, len(file_list)):
             current_file = file_list[index]
 

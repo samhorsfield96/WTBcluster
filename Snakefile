@@ -3,10 +3,9 @@ import os
 
 configfile: "config.yaml"
 
-
 def get_tokenized_genomes(wildcards):
     checkpoint_output = checkpoints.list_pyrodigal_full.get(**wildcards).output[0]
-    return expand("{out_dir}/tokenised_genomes/tokenized_genomes_batch_{batch_ID}.txt", out_dir=config['output_dir'], batch_ID=range(config['pyrodigal_num_batches']))
+    return expand("{out_dir}/tokenised_genomes/tokenized_genomes_batch_{batch_ID}.txt", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
     
 # Define the final output
 rule all:
