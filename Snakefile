@@ -72,37 +72,105 @@ def get_concatentated_files(wildcards):
    return expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
 
 # Run MMseqs clustering
-checkpoint mmseqs_cluster:
-    input:
-        file_list=get_concatentated_files
-    output:
-        output_dir=directory(f"{config['output_dir']}/mmseqs2_clustering")
-    threads: 40
-    params:
-        mmseqs2_tmp_dir=f"{config['mmseqs2_tmp_dir']}",
-        mmseqs2_min_ID=f"{config['mmseqs2_min_ID']}",
-        mmseqs2_min_cov=f"{config['mmseqs2_min_cov']}",
-        mmseqs2_cov_mode=f"{config['mmseqs2_cov_mode']}",
-        mmseqs2_cluster_mode=f"{config['mmseqs2_cluster_mode']}",
-        mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}",
-        mmseqs2_alignment_mode=f"{config['mmseqs2_alignment_mode']}",
-        outpref="clustering_",
-        
-    script: "scripts/run_mmseqs2.py"
+if config['clustering_method'] in ["iterative"]:
+    checkpoint mmseqs_cluster_iter:
+        input:
+            file_list=get_concatentated_files
+        output:
+            output_dir=directory(f"{config['output_dir']}/mmseqs2_clustering")
+        threads: 40
+        params:
+            mmseqs2_tmp_dir=f"{config['mmseqs2_tmp_dir']}",
+            mmseqs2_min_ID=f"{config['mmseqs2_min_ID']}",
+            mmseqs2_min_cov=f"{config['mmseqs2_min_cov']}",
+            mmseqs2_cov_mode=f"{config['mmseqs2_cov_mode']}",
+            mmseqs2_cluster_mode=f"{config['mmseqs2_cluster_mode']}",
+            mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}",
+            mmseqs2_alignment_mode=f"{config['mmseqs2_alignment_mode']}",
+            outpref="clustering_",
+            
+        script: "scripts/run_mmseqs2_iter.py"
+
+    def get_mmseqs2_clusters_iter(wildcards):
+        checkpoint_output = checkpoints.mmseqs_cluster_iter.get(**wildcards).output[0]
+        return expand("{out_dir}/mmseqs2_clustering/clustering_{batch_ID}_cluster.tsv", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+
+    rule mmseqs_cluster_merge_iter:
+        input:
+            infiles=get_mmseqs2_clusters
+        output:
+            clusters = f"{config['output_dir']}/merged_clusters/all_clusters.pkl"
+        conda:
+            "WTBcluster"
+        threads: 1
+        script: "scripts/merge_mmseqs2_clusters_iter.py"
+
+elif config['clustering_method'] in ["parallel"]:
+    checkpoint mmseqs_cluster_parallel:
+        input:
+            input_file=f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat_batch_N{batch_ID}.faa"
+        output:
+            #output_file=f"{config['output_dir']}/mmseqs2_clustering/clustering_{batch_ID}"
+            output_dir=directory(f"{config['output_dir']}/mmseqs2_clustering")
+        threads: 40
+        params:
+            mmseqs2_tmp_dir=f"{config['mmseqs2_tmp_dir']}",
+            mmseqs2_min_ID=f"{config['mmseqs2_min_ID']}",
+            mmseqs2_min_cov=f"{config['mmseqs2_min_cov']}",
+            mmseqs2_cov_mode=f"{config['mmseqs2_cov_mode']}",
+            mmseqs2_cluster_mode=f"{config['mmseqs2_cluster_mode']}",
+            mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}",
+            mmseqs2_alignment_mode=f"{config['mmseqs2_alignment_mode']}",
+            outpref="clustering_",
+        shell:
+            """
+            mmseqs easy-linclust {input.input_file} {output.output_dir}/{params.outpref}{batch_ID} {params.mmseqs2_tmp_dir} --min-seq-id {params.mmseqs2_min_ID} \
+                 -c {params.mmseqs2_min_cov} --seq-id-mode {params.mmseqs2_ID_mode} --cov-mode {params.mmseqs2_cov_mode} --cluster-mode {params.mmseqs2_cluster_mode} \
+                     --alignment-mode {params.mmseqs2_alignment_mode} --threads {threads} -v 2 
+            """
+
+    def get_mmseqs2_clusters_parallel(wildcards):
+        checkpoint_output = checkpoints.mmseqs_cluster_parallel.get(**wildcards).output[0]
+        return expand("{out_dir}/mmseqs2_clustering/clustering_{batch_ID}_rep_seq.fasta", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+
+    rule mmseqs_cluster_parallel_final:
+        input:
+            file_list=get_mmseqs2_clusters_parallel
+        output:
+            #output_file=f"{config['output_dir']}/mmseqs2_clustering/clustering_{batch_ID}"
+            outdir=directory(f"{config['output_dir']}/mmseqs2_clustering_final"),
+            output_cluster=f"{config['output_dir']}/mmseqs2_clustering_final/final_cluster.tsv",
+            output_rep=f"{config['output_dir']}/mmseqs2_clustering_final/final_rep_seq.fasta",
+            output_seq=f"{config['output_dir']}/mmseqs2_clustering_final/final_all_seqs.fasta"
+        threads: 40
+        params:
+            mmseqs2_tmp_dir=f"{config['mmseqs2_tmp_dir']}",
+            mmseqs2_min_ID=f"{config['mmseqs2_min_ID']}",
+            mmseqs2_min_cov=f"{config['mmseqs2_min_cov']}",
+            mmseqs2_cov_mode=f"{config['mmseqs2_cov_mode']}",
+            mmseqs2_cluster_mode=f"{config['mmseqs2_cluster_mode']}",
+            mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}",
+            mmseqs2_alignment_mode=f"{config['mmseqs2_alignment_mode']}",
+        script: "scripts/run_mmseqs2_parallel.py"
+
+    def get_mmseqs2_clusters_final(wildcards):
+        checkpoint_output = checkpoints.mmseqs_cluster_parallel.get(**wildcards).output[0]
+        return expand("{out_dir}/mmseqs2_clustering/clustering_{batch_ID}_cluster.tsv", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+
+    rule mmseqs_cluster_merge_parallel:
+        input:
+            infiles=get_mmseqs2_clusters_final,
+            final_cluster=f"{config['output_dir']}/mmseqs2_clustering_final/final_cluster.tsv"
+        output:
+            clusters = f"{config['output_dir']}/merged_clusters/all_clusters.pkl"
+        conda:
+            "WTBcluster"
+        threads: 1
+        script: "scripts/merge_mmseqs2_clusters_parallel.py"
+
 
 def get_mmseqs2_clusters(wildcards):
-    checkpoint_output = checkpoints.mmseqs_cluster.get(**wildcards).output[0]
     return expand("{out_dir}/mmseqs2_clustering/clustering_{batch_ID}_cluster.tsv", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
-
-rule mmseqs_cluster_merge:
-    input:
-        infiles=get_mmseqs2_clusters
-    output:
-        clusters = f"{config['output_dir']}/merged_clusters/all_clusters.pkl"
-    conda:
-        "WTBcluster"
-    threads: 1
-    script: "scripts/merge_mmseqs2_clusters.py"
 
 rule mmseqs_cluster_write:
     input:
