@@ -17,7 +17,7 @@ def run_mmseqs(file_list, output_dir, outpref, mmseqs2_tmp_dir, mmseqs2_min_ID, 
     # determine iteration number
     current_index = 0
     for index, filename in enumerate(file_list):
-        rep_file_path = f"{output_dir}/batch_{index}/{outpref}_rep_seq.fasta"
+        rep_file_path = f"{output_dir}/{outpref}{index}_rep_seq.fasta"
         if not os.path.exists(rep_file_path):
             current_index = index
             break
@@ -29,13 +29,10 @@ def run_mmseqs(file_list, output_dir, outpref, mmseqs2_tmp_dir, mmseqs2_min_ID, 
             current_file = file_list[index]
 
             mmseqs_input_file = os.path.join(output_dir, f"concatenated_{index}.fasta")
-            mmseqs_batch_outdir =  os.path.join(output_dir, f"batch_{index}")
-            if not os.path.exists(mmseqs_batch_outdir):
-                os.mkdir(mmseqs_batch_outdir)
 
             # concatenate representative 
             if index != 0:
-                prev_file = f"{output_dir}/batch_{index - 1}/{outpref}_rep_seq.fasta"
+                prev_file = f"{output_dir}/{outpref}{index - 1}_rep_seq.fasta"
 
                 # concatenate files
                 print(f"Concatentating {current_file} and {prev_file} to {mmseqs_input_file}")
@@ -52,7 +49,7 @@ def run_mmseqs(file_list, output_dir, outpref, mmseqs2_tmp_dir, mmseqs2_min_ID, 
                     with open(current_file, "r") as f1:
                         o.write(f1.read())
 
-            output_prefix = os.path.join(mmseqs_batch_outdir, outpref)
+            output_prefix = os.path.join(output_dir, outpref + str(index))
 
             try:
                 # Step 2: Run linclust with parameters
