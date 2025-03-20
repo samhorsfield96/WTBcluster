@@ -79,7 +79,7 @@ def get_concatentated_files(wildcards):
 # Run MMseqs clustering
 checkpoint mmseqs_cluster:
     input:
-        file_list=get_concatentated_files
+        input_file=f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat.faa"
     output:
         output_dir=directory(f"{config['output_dir']}/mmseqs2_clustering")
     threads: 40
@@ -93,12 +93,20 @@ checkpoint mmseqs_cluster:
         mmseqs2_alignment_mode=f"{config['mmseqs2_alignment_mode']}",
         outpref="clustering_",
         
-    script: "scripts/run_mmseqs2_iter.py"
+    shell: 
+        """
+        mmseqs easy-linclust {input.input_file} {output.output_dir}/{params.outpref}_final {params.mmseqs2_tmp_dir} \
+        --min-seq-id {params.mmseqs2_min_ID} -c {params.mmseqs2_min_cov} --seq-id-mode {params.mmseqs2_ID_mode} \
+        --cov-mode {params.mmseqs2_cov_mode} --cluster-mode {params.mmseqs2_cluster_mode} --alignment-mode {params.mmseqs2_alignment_mode} \
+        --threads {threads} -v 2
+        """
 
 def get_mmseqs2_clusters(wildcards):
     checkpoint_output = checkpoints.mmseqs_cluster.get(**wildcards).output[0]
     return expand("{out_dir}/mmseqs2_clustering/clustering_{batch_ID}_cluster.tsv", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
 
+# need to update python function to enable merging of existing clusters, adding to existing 
+# corpus but not merging existing cluster.
 rule mmseqs_cluster_merge:
     input:
         infiles=get_mmseqs2_clusters
