@@ -133,7 +133,7 @@ rule update_token_db:
     input:
         clusters = f"{config['output_dir']}/merged_clusters/all_clusters.tsv"
         out_db = f"{config['prev_merged_clusters']}/merged_clusters/gene_tokens.db",
-        in_reps = f"{config['prev_merged_clusters']}/merged_clusters/gene_tokens.db",
+        in_reps = f"{config['prev_merged_clusters']}/merged_clusters/reps.pkl",
     output:
         out_reps = f"{config['output_dir']}/merged_clusters/reps.pkl"
     conda:
