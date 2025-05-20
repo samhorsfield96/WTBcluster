@@ -2,7 +2,8 @@
 output_dir: /path/to/out/dir
 
 # output files of previous WTBcluster run
-prev_run_reps: /path/to/dir
+prev_run_reps: /path/to/fasta
+prev_merged_clusters: /path/to/prev_merged_clusters
 
 # tsv file with an absolute file path per line
 file_list: /path/to/file/list.txt

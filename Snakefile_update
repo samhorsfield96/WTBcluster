@@ -110,12 +110,13 @@ def get_mmseqs2_clusters(wildcards):
 rule mmseqs_cluster_merge:
     input:
         infiles=get_mmseqs2_clusters
+        prev_clusters=f"{config['prev_merged_clusters']}/all_clusters.pkl"
     output:
         clusters = f"{config['output_dir']}/merged_clusters/all_clusters.pkl"
     conda:
         "WTBcluster"
     threads: 1
-    script: "scripts/merge_mmseqs2_clusters_iter.py"
+    script: "scripts/merge_mmseqs2_clusters_update.py"
 
 rule mmseqs_cluster_write:
     input:
@@ -128,21 +129,23 @@ rule mmseqs_cluster_write:
     threads: 1
     script: "scripts/write_mmseqs2_clusters.py"
 
-rule generate_token_db:
+rule update_token_db:
     input:
         clusters = f"{config['output_dir']}/merged_clusters/all_clusters.tsv"
+        out_db = f"{config['prev_merged_clusters']}/merged_clusters/gene_tokens.db",
+        in_reps = f"{config['prev_merged_clusters']}/merged_clusters/gene_tokens.db",
     output:
-        out_db = directory(f"{config['output_dir']}/merged_clusters/gene_tokens.db"),
         out_reps = f"{config['output_dir']}/merged_clusters/reps.pkl"
     conda:
         "WTBcluster"
     threads: 1
-    script: "scripts/generate_token_db.py"
+    script: "scripts/update_token_db.py"
 
 rule tokenise_genomes:
     input:
         batch_file=f"{config['output_dir']}/pyrodigal_output_batches/mmseqs2_batch_N{{batch_ID}}_gff.txt",
-        out_db = f"{config['output_dir']}/merged_clusters/gene_tokens.db",
+        out_db = f"{config['prev_merged_clusters']}/merged_clusters/gene_tokens.db",
+        out_reps = f"{config['output_dir']}/merged_clusters/reps.pkl"
     output:
         outfile=f"{config['output_dir']}/tokenised_genomes/tokenized_genomes_batch_{{batch_ID}}.txt"
     conda:
