@@ -1,0 +1,199 @@
+import glob
+import os
+
+configfile: "config.yaml"
+
+def get_tokenized_genomes(wildcards):
+    checkpoint_output = checkpoints.list_pyrodigal_full.get(**wildcards).output[0]
+    return expand("{out_dir}/tokenised_genomes/tokenized_genomes_batch_{mmseqs2_batch_ID}.txt", out_dir=config['output_dir'], mmseqs2_batch_ID=range(config['mmseqs2_num_batches']))
+    
+# Define the final output
+rule all:
+   input:
+        f"{config['output_dir']}/merged_clusters/all_clusters.pkl",
+        f"{config['output_dir']}/merged_clusters/all_clusters.tsv",
+        f"{config['output_dir']}/merged_clusters/reps.pkl",
+        get_tokenized_genomes
+
+checkpoint split_file_batch:
+    input:
+        file_list=f"{config['file_list']}",
+    output:
+        batches_dir=directory(f"{config['output_dir']}/pyrodigal_input_batches")
+    params:
+        pyrodigal_num_batches=int(f"{config['pyrodigal_num_batches']}"),
+        outpref="pyrodigal_batch_N"
+    script: "scripts/split_file_pyrodigal.py"
+
+rule pyrodigal:
+    input:
+        batch_file=f"{config['output_dir']}/pyrodigal_input_batches/pyrodigal_batch_N{{pyrodigal_batch_ID}}.txt"
+    output:
+        outdir=directory(f"{config['output_dir']}/pyrodigal_annotations/batch_{{pyrodigal_batch_ID}}_ann"),
+    conda:
+        "WTBcluster"
+    threads: 1
+    script: "scripts/run_pyrodigal.py"
+
+def get_pyrodigal_outputs(wildcards):
+    checkpoint_output = checkpoints.split_file_batch.get(**wildcards).output[0]
+    return expand("{out_dir}/pyrodigal_annotations/batch_{pyrodigal_batch_ID}_ann", out_dir=config['output_dir'], pyrodigal_batch_ID=range(config['pyrodigal_num_batches']))
+
+checkpoint list_pyrodigal_full:
+    input:
+        dir_list=get_pyrodigal_outputs,
+    output:
+        output_dir=directory(f"{config['output_dir']}/pyrodigal_output_batches"),
+    params:
+        mmseqs2_num_batches=f"{config['mmseqs2_num_batches']}",
+        outpref="mmseqs2_batch_N"
+    script: "scripts/split_file_mmseqs.py"
+
+rule concatenate_faa:
+    input:
+        batch_file=f"{config['output_dir']}/pyrodigal_output_batches/mmseqs2_batch_N{{mmseqs2_batch_ID}}_faa.txt",
+    output:
+        outfile = f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat_batch_N{{mmseqs2_batch_ID}}.faa"
+    conda:
+        "WTBcluster"
+    threads: 1
+    shell:
+        """
+        > {output.outfile}
+        while IFS= read -r line || [[ -n "$line" ]]; do
+
+            cat $line >> {output.outfile}
+
+        done < {input.batch_file}
+        """
+
+def get_concatentated_files(wildcards):
+   checkpoint_output = checkpoints.list_pyrodigal_full.get(**wildcards).output[0]
+   return expand("{out_dir}/mmseqs2_batches/mmseqs2_concat_batch_N{mmseqs2_batch_ID}.faa", out_dir=config['output_dir'], mmseqs2_batch_ID=range(config['mmseqs2_num_batches']))
+
+# checkpoint check_concatentation:
+#     input: 
+#         concat_genomes=get_concatentated_files
+#     output:
+#         checkfile=f"{config['output_dir']}/concat_check.txt"
+#     shell:
+#         """
+#         touch {output.outfile}
+#         """
+
+rule mmseqs_cluster_parallel:
+    input:
+        input_file=f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat_batch_N{{mmseqs2_batch_ID}}.faa",
+        checkfiles=get_concatentated_files
+        #checkfile=f"{config['output_dir']}/concat_check.txt"
+    output:
+        #output_file=f"{config['output_dir']}/mmseqs2_clustering/clustering_{{mmseqs2_batch_ID}}_rep_seq.fasta",
+        output_dir=directory(f"{config['output_dir']}/mmseqs2_clustering/mmseqs_{{mmseqs2_batch_ID}}_batch")
+    threads: 40
+    params:
+        mmseqs2_tmp_dir=f"{config['mmseqs2_tmp_dir']}",
+        mmseqs2_min_ID=f"{config['mmseqs2_min_ID']}",
+        mmseqs2_min_cov=f"{config['mmseqs2_min_cov']}",
+        mmseqs2_cov_mode=f"{config['mmseqs2_cov_mode']}",
+        mmseqs2_cluster_mode=f"{config['mmseqs2_cluster_mode']}",
+        mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}",
+        mmseqs2_alignment_mode=f"{config['mmseqs2_alignment_mode']}",
+    shell:
+        """
+        mkdir -p {output.output_dir}
+        mmseqs easy-linclust {input.input_file} {output.output_dir}/clustering {params.mmseqs2_tmp_dir} --min-seq-id {params.mmseqs2_min_ID} \
+                -c {params.mmseqs2_min_cov} --seq-id-mode {params.mmseqs2_ID_mode} --cov-mode {params.mmseqs2_cov_mode} --cluster-mode {params.mmseqs2_cluster_mode} \
+                    --alignment-mode {params.mmseqs2_alignment_mode} --threads {threads} -v 2 
+        """
+
+def check_clusters(wildcards):
+    checkpoint_output = checkpoints.list_pyrodigal_full.get(**wildcards).output[0]
+    return expand("{out_dir}/mmseqs2_clustering/mmseqs_{mmseqs2_batch_ID}_batch", out_dir=config['output_dir'], mmseqs2_batch_ID=range(config['mmseqs2_num_batches']))
+
+checkpoint check_clustering:
+    input: 
+        concat_genomes=check_clusters
+    output:
+        checkfile=f"{config['output_dir']}/mmseqs2_clustering/cluster_check.txt"
+    shell:
+        """
+        touch {output.checkfile}
+        """
+
+def get_mmseqs2_clusters_parallel(wildcards):
+    checkpoint_output = checkpoints.check_clustering.get(**wildcards).output[0]
+    return expand("{out_dir}/mmseqs2_clustering/mmseqs_{mmseqs2_batch_ID}_batch/clustering_rep_seq.fasta", out_dir=config['output_dir'], mmseqs2_batch_ID=range(config['mmseqs2_num_batches']))
+
+checkpoint mmseqs_cluster_parallel_final:
+    input:
+        file_list=get_mmseqs2_clusters_parallel,
+        checkfile=f"{config['output_dir']}/mmseqs2_clustering/cluster_check.txt"
+    output:
+        #output_file=f"{config['output_dir']}/mmseqs2_clustering/clustering_{mmseqs2_batch_ID}"
+        output_dir=directory(f"{config['output_dir']}/mmseqs2_clustering_final"),
+        final_cluster=f"{config['output_dir']}/mmseqs2_clustering_final/final_cluster.tsv"
+        #output_rep=f"{config['output_dir']}/mmseqs2_clustering_final/final_rep_seq.fasta",
+        #output_seq=f"{config['output_dir']}/mmseqs2_clustering_final/final_all_seqs.fasta"
+    threads: 40
+    params:
+        mmseqs2_tmp_dir=f"{config['mmseqs2_tmp_dir']}",
+        mmseqs2_min_ID=f"{config['mmseqs2_min_ID']}",
+        mmseqs2_min_cov=f"{config['mmseqs2_min_cov']}",
+        mmseqs2_cov_mode=f"{config['mmseqs2_cov_mode']}",
+        mmseqs2_cluster_mode=f"{config['mmseqs2_cluster_mode']}",
+        mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}",
+        mmseqs2_alignment_mode=f"{config['mmseqs2_alignment_mode']}",
+    script: "scripts/run_mmseqs2_parallel.py"
+
+def get_mmseqs2_clusters_final(wildcards):
+    checkpoint_output = checkpoints.mmseqs_cluster_parallel_final.get(**wildcards).output[0]
+    return expand("{out_dir}/mmseqs2_clustering/mmseqs_{mmseqs2_batch_ID}_batch/clustering_cluster.tsv", out_dir=config['output_dir'], mmseqs2_batch_ID=range(config['mmseqs2_num_batches']))
+
+checkpoint mmseqs_cluster_merge_parallel:
+    input:
+        infiles=get_mmseqs2_clusters_final,
+        final_cluster=f"{config['output_dir']}/mmseqs2_clustering_final/final_cluster.tsv"
+    output:
+        clusters = f"{config['output_dir']}/merged_clusters/all_clusters.pkl"
+    conda:
+        "WTBcluster"
+    threads: 1
+    script: "scripts/merge_mmseqs2_clusters_parallel.py"
+
+
+def get_mmseqs2_clusters(wildcards):
+    checkpoint_output = checkpoints.mmseqs_cluster_merge_parallel.get(**wildcards).output[0]
+    return expand("{out_dir}/mmseqs2_clustering/mmseqs_{mmseqs2_batch_ID}_batch/clustering_cluster.tsv", out_dir=config['output_dir'], mmseqs2_batch_ID=range(config['mmseqs2_num_batches']))
+
+rule mmseqs_cluster_write:
+    input:
+        infiles=get_mmseqs2_clusters,
+        clusters = f"{config['output_dir']}/merged_clusters/all_clusters.pkl"
+    output:
+        outfile = f"{config['output_dir']}/merged_clusters/all_clusters.tsv"
+    conda:
+        "WTBcluster"
+    threads: 1
+    script: "scripts/write_mmseqs2_clusters.py"
+
+rule generate_token_db:
+    input:
+        clusters = f"{config['output_dir']}/merged_clusters/all_clusters.tsv"
+    output:
+        out_db = directory(f"{config['output_dir']}/merged_clusters/gene_tokens.db"),
+        out_reps = f"{config['output_dir']}/merged_clusters/reps.pkl"
+    conda:
+        "WTBcluster"
+    threads: 1
+    script: "scripts/generate_token_db.py"
+
+rule tokenise_genomes:
+    input:
+        batch_file=f"{config['output_dir']}/pyrodigal_output_batches/mmseqs2_batch_N{{mmseqs2_batch_ID}}_gff.txt",
+        out_db = f"{config['output_dir']}/merged_clusters/gene_tokens.db",
+    output:
+        outfile=f"{config['output_dir']}/tokenised_genomes/tokenized_genomes_batch_{{mmseqs2_batch_ID}}.txt"
+    conda:
+        "WTBcluster"
+    threads: 1
+    script: "scripts/tokenize_genomes.py"

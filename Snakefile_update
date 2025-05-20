@@ -1,7 +1,7 @@
 import glob
 import os
 
-configfile: "config.yaml"
+configfile: "config_update.yaml"
 
 def get_tokenized_genomes(wildcards):
     checkpoint_output = checkpoints.list_pyrodigal_full.get(**wildcards).output[0]
@@ -51,20 +51,25 @@ checkpoint list_pyrodigal_full:
 
 rule concatenate_faa:
     input:
-        batch_file=f"{config['output_dir']}/pyrodigal_output_batches/mmseqs2_batch_N{{batch_ID}}_faa.txt",
+        batch_files=f"{config['output_dir']}/pyrodigal_output_batches",
+        prev_run_reps=f"{config['prev_run_reps']}",
     output:
-        outfile = f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat_batch_N{{batch_ID}}.faa"
+        outfile = f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat.faa"
     conda:
         "WTBcluster"
     threads: 1
     shell:
         """
         > {output.outfile}
-        while IFS= read -r line || [[ -n "$line" ]]; do
+        for file in {input.batch_files}/*; do
+            while IFS= read -r line || [[ -n "$line" ]]; do
 
-            cat $line >> {output.outfile}
+                cat $line >> {output.outfile}
 
-        done < {input.batch_file}
+            done < "${file}"
+        done
+
+        cat {input.prev_run_reps} >> {output.outfile}
         """
 
 def get_concatentated_files(wildcards):
@@ -74,7 +79,7 @@ def get_concatentated_files(wildcards):
 # Run MMseqs clustering
 checkpoint mmseqs_cluster:
     input:
-        file_list=get_concatentated_files
+        input_file=f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat.faa"
     output:
         output_dir=directory(f"{config['output_dir']}/mmseqs2_clustering")
     threads: 40
@@ -88,21 +93,30 @@ checkpoint mmseqs_cluster:
         mmseqs2_alignment_mode=f"{config['mmseqs2_alignment_mode']}",
         outpref="clustering_",
         
-    script: "scripts/run_mmseqs2.py"
+    shell: 
+        """
+        mmseqs easy-linclust {input.input_file} {output.output_dir}/{params.outpref}_final {params.mmseqs2_tmp_dir} \
+        --min-seq-id {params.mmseqs2_min_ID} -c {params.mmseqs2_min_cov} --seq-id-mode {params.mmseqs2_ID_mode} \
+        --cov-mode {params.mmseqs2_cov_mode} --cluster-mode {params.mmseqs2_cluster_mode} --alignment-mode {params.mmseqs2_alignment_mode} \
+        --threads {threads} -v 2
+        """
 
 def get_mmseqs2_clusters(wildcards):
     checkpoint_output = checkpoints.mmseqs_cluster.get(**wildcards).output[0]
     return expand("{out_dir}/mmseqs2_clustering/clustering_{batch_ID}_cluster.tsv", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
 
+# need to update python function to enable merging of existing clusters, adding to existing 
+# corpus but not merging existing cluster.
 rule mmseqs_cluster_merge:
     input:
         infiles=get_mmseqs2_clusters
+        prev_clusters=f"{config['prev_merged_clusters']}/all_clusters.pkl"
     output:
         clusters = f"{config['output_dir']}/merged_clusters/all_clusters.pkl"
     conda:
         "WTBcluster"
     threads: 1
-    script: "scripts/merge_mmseqs2_clusters.py"
+    script: "scripts/merge_mmseqs2_clusters_update.py"
 
 rule mmseqs_cluster_write:
     input:
@@ -115,21 +129,23 @@ rule mmseqs_cluster_write:
     threads: 1
     script: "scripts/write_mmseqs2_clusters.py"
 
-rule generate_token_db:
+rule update_token_db:
     input:
         clusters = f"{config['output_dir']}/merged_clusters/all_clusters.tsv"
+        out_db = f"{config['prev_merged_clusters']}/merged_clusters/gene_tokens.db",
+        in_reps = f"{config['prev_merged_clusters']}/merged_clusters/gene_tokens.db",
     output:
-        out_db = directory(f"{config['output_dir']}/merged_clusters/gene_tokens.db"),
         out_reps = f"{config['output_dir']}/merged_clusters/reps.pkl"
     conda:
         "WTBcluster"
     threads: 1
-    script: "scripts/generate_token_db.py"
+    script: "scripts/update_token_db.py"
 
 rule tokenise_genomes:
     input:
         batch_file=f"{config['output_dir']}/pyrodigal_output_batches/mmseqs2_batch_N{{batch_ID}}_gff.txt",
-        out_db = f"{config['output_dir']}/merged_clusters/gene_tokens.db",
+        out_db = f"{config['prev_merged_clusters']}/merged_clusters/gene_tokens.db",
+        out_reps = f"{config['output_dir']}/merged_clusters/reps.pkl"
     output:
         outfile=f"{config['output_dir']}/tokenised_genomes/tokenized_genomes_batch_{{batch_ID}}.txt"
     conda:
