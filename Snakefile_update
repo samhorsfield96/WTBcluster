@@ -4,7 +4,7 @@ import os
 configfile: "config_update.yaml"
 
 def get_tokenized_genomes(wildcards):
-    checkpoint_output = checkpoints.mmseqs_cluster_merge.get(**wildcards).output[0]
+    checkpoint_output = checkpoints.update_token_db.get(**wildcards).output[0]
     return expand("{out_dir}/tokenised_genomes/tokenized_genomes_batch_{batch_ID}.txt", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
     
 # Define the final output
@@ -94,7 +94,7 @@ checkpoint concatenate_faa_all:
         """
 
 # Run MMseqs clustering
-rule mmseqs_cluster:
+checkpoint mmseqs_cluster:
     input:
         input_file=f"{config['output_dir']}/mmseqs2_batches/mmseqs2_concat.faa"
     output:
@@ -108,10 +108,11 @@ rule mmseqs_cluster:
         mmseqs2_cluster_mode=f"{config['mmseqs2_cluster_mode']}",
         mmseqs2_ID_mode=f"{config['mmseqs2_ID_mode']}",
         mmseqs2_alignment_mode=f"{config['mmseqs2_alignment_mode']}",
-        outpref="clustering_",
+        outpref="clustering",
         
     shell: 
         """
+        mkdir -p {output.output_dir}
         mmseqs easy-linclust {input.input_file} {output.output_dir}/{params.outpref}_final {params.mmseqs2_tmp_dir} \
         --min-seq-id {params.mmseqs2_min_ID} -c {params.mmseqs2_min_cov} --seq-id-mode {params.mmseqs2_ID_mode} \
         --cov-mode {params.mmseqs2_cov_mode} --cluster-mode {params.mmseqs2_cluster_mode} --alignment-mode {params.mmseqs2_alignment_mode} \
@@ -119,8 +120,8 @@ rule mmseqs_cluster:
         """
 
 def get_mmseqs2_clusters(wildcards):
-    checkpoint_output = checkpoints.concatenate_faa_all.get(**wildcards).output[0]
-    return expand("{out_dir}/mmseqs2_clustering/clustering_{batch_ID}_cluster.tsv", out_dir=config['output_dir'], batch_ID=range(config['mmseqs2_num_batches']))
+    checkpoint_output = checkpoints.mmseqs_cluster.get(**wildcards).output[0]
+    return [f"{config['output_dir']}/mmseqs2_clustering/clustering_final_cluster.tsv"]
 
 checkpoint mmseqs_cluster_merge:
     input:
@@ -144,7 +145,7 @@ rule mmseqs_cluster_write:
     threads: 1
     script: "scripts/write_mmseqs2_clusters.py"
 
-rule update_token_db:
+checkpoint update_token_db:
     input:
         clusters = f"{config['output_dir']}/merged_clusters/all_clusters.tsv",
         out_db = f"{config['prev_merged_clusters']}/gene_tokens.db",
@@ -156,14 +157,10 @@ rule update_token_db:
     threads: 1
     script: "scripts/update_token_db.py"
 
-#def get_mmseqs2_merged_clusters(wildcards):
-#    checkpoint_output = checkpoints.mmseqs_cluster_merge.get(**wildcards).output[0]
-#    return f"{config['output_dir']}/merged_clusters/reps.pkl"
-
 rule tokenise_genomes:
     input:
         batch_file=f"{config['output_dir']}/pyrodigal_output_batches/mmseqs2_batch_N{{batch_ID}}_gff.txt",
-        out_db = f"{config['prev_merged_clusters']}/merged_clusters/gene_tokens.db",
+        out_db = f"{config['prev_merged_clusters']}/gene_tokens.db",
         out_reps = f"{config['output_dir']}/merged_clusters/reps.pkl"
     output:
         outfile=f"{config['output_dir']}/tokenised_genomes/tokenized_genomes_batch_{{batch_ID}}.txt"
