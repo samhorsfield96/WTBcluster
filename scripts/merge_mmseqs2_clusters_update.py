@@ -34,7 +34,7 @@ def merge_mmseqs2(rep_files, prev_clusters, clusters):
                 if not line:
                     break
 
-                split_line = line.rstrip().split(" ")
+                split_line = line.rstrip().split("\t")
                 rep = split_line[0]
                 seq = split_line[1]
 

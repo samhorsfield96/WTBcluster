@@ -66,4 +66,4 @@ def update_token_db(cluster_file, out_db, in_reps, out_reps):
     
     print("Saved token dictionaries.")
 
-generate_token_db(snakemake.input.clusters, snakemake.input.out_db, snakemake.input.in_reps, snakemake.output.out_reps)
+update_token_db(snakemake.input.clusters, snakemake.input.out_db, snakemake.input.in_reps, snakemake.output.out_reps)
