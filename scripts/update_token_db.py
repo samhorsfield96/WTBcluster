@@ -27,8 +27,8 @@ def update_token_db(cluster_file, out_db, in_reps, out_reps):
 
     gene_tokens = rocksdb.DB(out_db, opts)
 
-    #start at len(rep_to_token) + 1 as cannot assign negative 0
-    token = len(rep_to_token) + 1
+    #start at len(rep_to_token), will produce new token when new one discovered
+    token = len(rep_to_token)
     print("Generating token dictionaries...")
     counter = 0
     with open(cluster_file, "r") as f:
