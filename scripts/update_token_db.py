@@ -44,6 +44,10 @@ def update_token_db(cluster_file, out_db, in_reps, out_reps):
             rep = split_rep
             seq = split_seq
 
+            # if previously clustered rep is the seq, ignore as don't want to reassign
+            if seq in rep_to_token:
+                continue
+
             # allows use of non-sorted list
             if rep not in rep_to_token:
                 token += 1
