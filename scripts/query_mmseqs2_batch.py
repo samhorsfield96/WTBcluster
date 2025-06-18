@@ -27,6 +27,9 @@ def get_options():
     IO.add_argument('--mmseqs2-all-fasta',
                     required=True,
                     help='Directory containing MMseqs all_seqs.fasta files.')
+    IO.add_argument('--m8_file',
+                    default=None,
+                    help='Previous results from query_mmseqs2.py.')
     IO.add_argument('--length-discrepancy',
                     default="0.0,0.0",
                     help='Proportional length difference between query and returned proteins. Pass as comma separated list e.g. 0.9,1.1 will return proteins that are 10%/ smaller and larger than the query. If unspecifed, returns all.'
@@ -56,6 +59,7 @@ def main():
     tmp = options.tmp
     length_discrepancy = options.length_discrepancy
     no_partials = options.no_partials
+    m8_file = options.m8_file
 
     length_discrepancy = [float(x) for x in length_discrepancy.split(",")]
     assert(len(length_discrepancy) == 2)
@@ -68,17 +72,20 @@ def main():
         query_dict[name] = sequence
 
     # run initial easy-search
-    search_output = outpref + ".m8"
-    try:
-        subprocess.run([
-            "mmseqs", "easy-search", query, reps, search_output, tmp, *mmseqs2_params.split(" ")
-        ], check=True)
+    if m8_file == None:
+        search_output = outpref + ".m8"
+        try:
+            subprocess.run([
+                "mmseqs", "easy-search", query, reps, search_output, tmp, *mmseqs2_params.split(" ")
+            ], check=True)
 
-        print(f"Clustering results saved to {search_output}")
+            print(f"Clustering results saved to {search_output}")
 
-    except subprocess.CalledProcessError as e:
-        print(f"An error occurred: {e}")
-        sys.exit(1)
+        except subprocess.CalledProcessError as e:
+            print(f"An error occurred: {e}")
+            sys.exit(1)
+    else:
+        search_output = m8_file
     
     # read in output file
     print(f"Reading alignments {search_output}...")

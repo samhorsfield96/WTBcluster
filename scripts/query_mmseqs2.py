@@ -24,6 +24,9 @@ def get_options():
     IO.add_argument('--fasta-pref',
                     default="",
                     help='Optional file prefix for .fasta files.')
+    IO.add_argument('--m8_file',
+                    default=None,
+                    help='Previous results from query_mmseqs2.py.')
     IO.add_argument('--length-discrepancy',
                     default="0.0,0.0",
                     help='Proportional length difference between query and returned proteins. Pass as comma separated list e.g. 0.9,1.1 will return proteins that are 10%/ smaller and larger than the query. If unspecifed, returns all.'
@@ -50,6 +53,7 @@ def main():
     tmp = options.tmp
     length_discrepancy = options.length_discrepancy
     no_partials = options.no_partials
+    m8_file = options.m8_file
 
     length_discrepancy = [float(x) for x in length_discrepancy.split(",")]
     assert(len(length_discrepancy) == 2)
@@ -69,19 +73,24 @@ def main():
     final_dict = defaultdict(set)
     for input_file in mmseqs2_all_fasta_list:
         # run initial easy-search
-        search_output = outpref + ".m8"
-        print(f"Searching FASTA {input_file}...")
-        try:
-            subprocess.run([
-                "mmseqs", "easy-search", query, input_file, search_output, tmp, *mmseqs2_params.split(" ")
-            ], check=True)
 
-            print(f"Clustering results saved to {search_output}")
+        if m8_file == None:
+            search_output = outpref + ".m8"
+            print(f"Searching FASTA {input_file}...")
+            try:
+                subprocess.run([
+                    "mmseqs", "easy-search", query, input_file, search_output, tmp, *mmseqs2_params.split(" ")
+                ], check=True)
 
-        except subprocess.CalledProcessError as e:
-            print(f"An error occurred: {e}")
-            sys.exit(1)
+                print(f"Clustering results saved to {search_output}")
 
+            except subprocess.CalledProcessError as e:
+                print(f"An error occurred: {e}")
+                sys.exit(1)
+
+        else: 
+            search_output = m8_file
+            
         # read in output file
         print(f"Reading alignments {search_output}...")
         cluster_dict = defaultdict(set)
@@ -139,6 +148,10 @@ def main():
     # write the fasta files
     print(f"Printing output files...")
     for query_id, hit_list in final_dict.items():
+        # update query_id to ensure can generate file name
+        query_id_updated = query_id.replace("/", "_")
+        query_id_updated = query_id.replace(":", "_")
+        query_id_updated = query_id.replace("\\", "_")
         with open(outpref + "_" + query_id + ".fasta", "w") as o:
             for name, description, sequence in hit_list:
                 o.write(">" + description + "\n" + sequence + "\n")
