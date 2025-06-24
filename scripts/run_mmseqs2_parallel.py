@@ -20,7 +20,11 @@ def run_mmseqs(file_list, output_dir, mmseqs2_tmp_dir, mmseqs2_min_ID, mmseqs2_m
             for current_file in file_list:
                 print(f"Concatentating {current_file} to {mmseqs_input_file}")
                 with open(current_file, "r") as f1:
-                        o.write(f1.read())
+                    while True:
+                        line = f1.readline()
+                        if not line:
+                            break
+                        o.write(line)
 
     output_prefix = os.path.join(output_dir, "final")
 

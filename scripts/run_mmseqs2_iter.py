@@ -38,16 +38,28 @@ def run_mmseqs(file_list, output_dir, outpref, mmseqs2_tmp_dir, mmseqs2_min_ID, 
                 print(f"Concatentating {current_file} and {prev_file} to {mmseqs_input_file}")
                 with open(mmseqs_input_file, "w") as o:
                     with open(current_file, "r") as f1:
-                        o.write(f1.read())
+                        while True:
+                            line = f1.readline()
+                            if not line:
+                                break
+                            o.write(line)
                     with open(prev_file, "r") as f2:
-                        o.write(f2.read())
+                        while True:
+                            line = f2.readline()
+                            if not line:
+                                break
+                            o.write(line)
 
             else:
                 # copy original file
                 print(f"Copying {current_file} to {mmseqs_input_file}")
                 with open(mmseqs_input_file, "w") as o:
                     with open(current_file, "r") as f1:
-                        o.write(f1.read())
+                        while True:
+                            line = f1.readline()
+                            if not line:
+                                break
+                            o.write(line)
 
             output_prefix = os.path.join(output_dir, outpref + str(index))
 
