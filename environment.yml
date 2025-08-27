@@ -8,6 +8,6 @@ dependencies:
   - mmseqs2
   - pandas
   - biopython
-  - snakemake
+  - snakemake>=9.6
   - python-rocksdb
   - natsort
