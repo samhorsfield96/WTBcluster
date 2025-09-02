@@ -5,12 +5,18 @@ import os
 
 def read_fasta(input_file):
     """Reads a FASTA file, gzipped or not, and returns the sequences."""
-    if input_file.endswith(".gz"):
-        with gzip.open(input_file, "rt") as handle:
-            sequences = list(SeqIO.parse(handle, "fasta"))
-    else:
-        with open(input_file, "r") as handle:
-            sequences = list(SeqIO.parse(handle, "fasta"))
+    with open(input_file, "rb") as f:
+        magic = f.read(2)
+    try:
+        if magic == b"\x1f\x8b":
+            with gzip.open(input_file, "rt") as handle:
+                sequences = list(SeqIO.parse(handle, "fasta"))
+        else:
+            with open(input_file, "r") as handle:
+                sequences = list(SeqIO.parse(handle, "fasta"))
+    # if error encountered with opening, return empty list
+    except:
+        sequences = []
     return sequences
 
 def write_fasta(sequences, output_file):
