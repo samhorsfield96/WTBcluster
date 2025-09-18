@@ -9,7 +9,7 @@ def get_options():
     IO = parser.add_argument_group('Input/options.out')
     IO.add_argument('--clusters',
                     required=True,
-                    help='Cluster file, usually "merged_clusters/all_clusters.pkl".')
+                    help='Cluster file, usually "merged_clusters/reps.pkl".')
     IO.add_argument('--annotations',
             required=True,
             help='Path to gene annotation tsv file.')
