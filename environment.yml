@@ -11,3 +11,5 @@ dependencies:
   - snakemake>=9.6
   - python-rocksdb
   - natsort
+  - scipy
+  - numpy
